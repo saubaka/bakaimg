@@ -1,0 +1,16 @@
+{% extends "layouts/site.html" %}
+{% block title %}{{ album.title }} · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="page-shell public-album-page">
+    <section class="card public-album-hero" data-reveal>
+      <div><span class="eyebrow">{{ {'private': '仅自己', 'unlisted': '通过链接分享', 'public': '公开相册'}[album.visibility] }}</span><h1>{{ album.title }}</h1><p>{{ album.description or '一本安静收藏画面的相册。' }}</p><div class="creator-link"><span class="soft-avatar soft-avatar--small">{{ album.owner.display_name[:1] }}</span><span><strong>{{ album.owner.display_name }}</strong><small>@{{ album.owner.username }}</small></span></div></div>
+      <div class="album-stat-cloud"><strong>{{ images|length }}</strong><span>张画面</span><small>{{ album.view_count }} 次浏览</small></div>
+    </section>
+    <section class="album-story-grid">
+      {% for image in images %}
+        <article class="card album-story-item" data-reveal><a href="{{ url_for('public.share_image', public_id=image.public_id) }}"><img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="{{ image.alt_text or image.title }}" loading="lazy"></a><span>{{ '%02d'|format(loop.index) }}</span><div><strong>{{ image.title or image.original_name }}</strong>{% if image.alt_text %}<p>{{ image.alt_text }}</p>{% endif %}</div></article>
+      {% else %}<div class="card empty-cloud"><span>▦</span><h2>这个相册暂时是空的</h2><p>以后放进来的图片会出现在这里。</p></div>{% endfor %}
+    </section>
+    {% if current_user.is_authenticated and current_user.id == album.owner_id %}<a class="button button--soft" href="{{ url_for('images.edit_album', public_id=album.public_id) }}">编辑这本相册</a>{% endif %}
+  </div>
+{% endblock %}

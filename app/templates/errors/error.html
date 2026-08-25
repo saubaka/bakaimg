@@ -1,0 +1,13 @@
+{% extends "layouts/site.html" %}
+{% block title %}{{ status_code }} · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="page-shell error-page">
+    <section class="card">
+      <span class="eyebrow">页面没有找到</span>
+      <strong>{{ status_code }}</strong>
+      <h1>这一页暂时没有打开</h1>
+      <p>可以回到首页，或者稍后再试一次。</p>
+      <a class="button button--primary" href="{{ url_for('public.home') }}">返回首页</a>
+    </section>
+  </div>
+{% endblock %}

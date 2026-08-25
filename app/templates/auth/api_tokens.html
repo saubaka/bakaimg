@@ -1,0 +1,39 @@
+{% extends "layouts/site.html" %}
+{% block title %}应用钥匙 · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="page-shell token-page">
+    <section class="card library-hero" data-reveal>
+      <div><span class="eyebrow">应用钥匙</span><h1>连接其他应用</h1><p>需要时创建，不用了就随时收回。</p></div>
+      <a class="button button--soft" href="{{ url_for('images.library') }}">返回图库</a>
+    </section>
+
+    {% if new_token %}
+      <section class="card token-reveal" data-reveal>
+        <span class="eyebrow">现在保存</span><h2>请复制好这把钥匙</h2><p>离开这个页面后，它不会再次完整显示。</p>
+        <label class="copy-field"><span>新钥匙</span><span><input value="{{ new_token }}" readonly data-copy-source><button class="button button--primary button--small" type="button" data-copy-button>复制</button></span></label>
+      </section>
+    {% endif %}
+
+    <div class="token-layout">
+      <section class="card admin-panel" data-reveal>
+        <div class="section-heading"><div><span class="eyebrow">新建</span><h2>创建一把钥匙</h2></div></div>
+        <form class="soft-form" method="post">
+          {{ form.hidden_tag() }}
+          <label>{{ form.name.label }}{{ form.name(placeholder="例如：我的相册工具") }}</label>
+          <label>{{ form.scopes.label }}{{ form.scopes(size=2) }}<small>可按住 Ctrl 选择多个用途。</small></label>
+          <label>{{ form.expires_days.label }}{{ form.expires_days() }}<small>到期后会自动停用。</small></label>
+          {% for field in form if field.errors %}{% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}{% endfor %}
+          {{ form.submit(class="button button--primary button--full") }}
+        </form>
+      </section>
+      <section class="card admin-panel" data-reveal>
+        <div class="section-heading"><div><span class="eyebrow">已经创建</span><h2>我的钥匙</h2></div><span class="phase-badge">{{ tokens|length }} 把</span></div>
+        <div class="token-list">
+          {% for token in tokens %}
+            <article class="{{ 'is-muted' if not token.is_active }}"><div><strong>{{ token.name }}</strong><small>{{ token.token_prefix }}…</small><small>{{ token.created_at.strftime('%Y-%m-%d') }} 创建 · {{ token.expires_at.strftime('%Y-%m-%d') }} 到期{% if token.last_used_at %} · 最近使用 {{ token.last_used_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</small></div>{% if token.revoked_at %}<span class="status-tag status-tag--muted">已收回</span>{% elif token.is_expired %}<span class="status-tag status-tag--muted">已到期</span>{% else %}<form method="post" data-confirm="收回后，正在使用它的应用会停止连接。确定继续吗？" action="{{ url_for('auth.revoke_token', token_id=token.id) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">收回</button></form>{% endif %}</article>
+          {% else %}<p>还没有应用钥匙。</p>{% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
+{% endblock %}

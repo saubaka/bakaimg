@@ -1,0 +1,37 @@
+{% extends "layouts/admin.html" %}
+{% block title %}动画 · {{ site_name }}{% endblock %}
+{% block admin_title %}动画{% endblock %}
+{% block admin_content %}
+  <form class="card admin-panel transition-settings" method="post" data-transition-settings>
+    {{ form.hidden_tag() }}
+    <div class="section-heading"><div><span class="eyebrow">PAGE MOTION</span><h2>全站页面过渡</h2></div></div>
+    <div class="transition-choice-grid">
+      {% for option in form.transition_style %}
+        {% set style = option.data %}
+        <label class="transition-choice transition-choice--{{ style }}">
+          {{ option }}
+          <span class="transition-choice__demo" aria-hidden="true"><i></i><b></b><em></em></span>
+          <span class="transition-choice__copy"><strong>{{ option.label.text }}</strong></span>
+        </label>
+      {% endfor %}
+    </div>
+    {% for error in form.transition_style.errors %}<small class="form-error">{{ error }}</small>{% endfor %}
+    <section class="transition-duration-card">
+      <div><span class="eyebrow">TIMING</span><h3>动画时间</h3></div>
+      <div class="transition-duration-control">
+        <input type="range" min="300" max="2400" step="20" value="{{ form.transition_duration.data or 720 }}" data-transition-duration-range aria-label="动画时间滑块">
+        <label><span>毫秒</span>{{ form.transition_duration(min=300,max=2400,step=20,data_transition_duration_input='true') }}</label>
+        <output data-transition-duration-output>{{ form.transition_duration.data or 720 }} ms</output>
+      </div>
+    </section>
+    <section class="appearance-color-card">
+      <div><span class="eyebrow">CURTAIN COLORS</span><h3>过渡遮罩配色</h3></div>
+      <div class="appearance-color-grid">
+        {% for field in (form.transition_color_start, form.transition_color_middle, form.transition_color_end) %}
+          <label class="appearance-color-field"><span>{{ field.label.text }}</span>{{ field(type='color') }}<code data-color-value>{{ field.data }}</code>{% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}</label>
+        {% endfor %}
+      </div>
+    </section>
+    <div class="sticky-form-actions">{{ form.submit(class='button button--primary') }}</div>
+  </form>
+{% endblock %}

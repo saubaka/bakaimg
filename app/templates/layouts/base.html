@@ -1,0 +1,48 @@
+<!doctype html>
+<html
+  lang="zh-CN"
+  data-motion="system"
+  data-page-transition="{{ page_transition_style }}"
+  data-transition-duration="{{ page_transition_duration }}"
+  data-transition-color-start="{{ page_transition_color_start }}"
+  data-transition-color-middle="{{ page_transition_color_middle }}"
+  data-transition-color-end="{{ page_transition_color_end }}"
+  data-dialog-style="{{ dialog_style }}"
+  data-dialog-color-start="{{ dialog_color_start }}"
+  data-dialog-color-end="{{ dialog_color_end }}"
+  data-dialog-accent="{{ dialog_accent }}"
+  data-dialog-radius="{{ dialog_radius }}"
+  data-dialog-width="{{ dialog_width }}"
+  data-dialog-backdrop-blur="{{ dialog_backdrop_blur }}"
+  data-dialog-shadow="{{ dialog_shadow }}"
+>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light">
+    <meta name="theme-color" content="#f6f9fc">
+    <meta name="description" content="{{ site_tagline }}">
+    <script src="{{ url_for('static', filename='scripts/transition-bootstrap.js', v=app_version) }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/app.css', v=app_version) }}">
+    <title>{% block title %}{{ site_name }}{% endblock %}</title>
+  </head>
+  <body class="{% block body_class %}{% endblock %}">
+    <a class="skip-link" href="#main-content">跳到主要内容</a>
+    {% block body %}{% endblock %}
+    <div class="toast-region" data-toast-region aria-live="polite" aria-atomic="true" aria-relevant="additions text">
+      {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div class="toast toast--{{ category }}" data-toast role="{{ 'alert' if category in ['error', 'warning'] else 'status' }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    <dialog class="modal app-system-dialog" data-app-system-dialog aria-labelledby="app-system-dialog-title" aria-describedby="app-system-dialog-message">
+      <div class="app-system-dialog__icon" aria-hidden="true">✦</div>
+      <div class="app-system-dialog__content">
+        <div class="modal__header"><div><h2 id="app-system-dialog-title" data-app-dialog-title>确认操作</h2></div><button class="icon-button" type="button" data-app-dialog-cancel aria-label="关闭">×</button></div>
+        <p id="app-system-dialog-message" data-app-dialog-message></p>
+        <label class="field app-system-dialog__field" data-app-dialog-field hidden><span class="field__label" data-app-dialog-input-label>请输入内容</span><input type="text" data-app-dialog-input autocomplete="off"></label>
+        <div class="button-row button-row--end"><button class="button button--soft" type="button" data-app-dialog-cancel>取消</button><button class="button button--primary" type="button" data-app-dialog-confirm>确认</button></div>
+      </div>
+    </dialog>
+    <script src="{{ url_for('static', filename='scripts/app.js', v=app_version) }}" defer></script>
+  </body>
+</html>

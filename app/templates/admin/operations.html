@@ -1,0 +1,104 @@
+{% extends "layouts/admin.html" %}
+{% block title %}运维中心 · {{ system_name }}{% endblock %}
+{% block admin_title %}运维中心{% endblock %}
+{% block admin_content %}
+  <section class="admin-hero card" data-reveal>
+    <div>
+      <span class="eyebrow">SAFE OPERATIONS</span>
+      <h2>每一次备份，都能被重新验证</h2>
+      <p>在线后台只负责创建和恢复预检；真正替换数据库与图片目录的恢复动作，仅允许停服后在本机命令行执行。</p>
+    </div>
+    <span class="admin-hero-art" aria-hidden="true">◌</span>
+  </section>
+
+  <section class="metric-grid">
+    <article class="card metric-card">
+      <span>SQLite</span><strong>{{ diagnostics.database }}</strong>
+      <small>迁移 {{ diagnostics.migration or '未知' }}</small>
+    </article>
+    <article class="card metric-card">
+      <span>媒体一致性</span><strong>{{ diagnostics.media_status }}</strong>
+      <small>{{ diagnostics.media_records }} 项 · 缺失 {{ diagnostics.media_missing }} · 游离 {{ diagnostics.media_untracked }}</small>
+    </article>
+    <article class="card metric-card">
+      <span>本地备份</span><strong>{{ backups|length }}</strong>
+      <small>自动保留最近 20 份系统备份</small>
+    </article>
+    <article class="card metric-card">
+      <span>磁盘可用</span><strong>{{ format_bytes(disk.free) }}</strong>
+      <small>总容量 {{ format_bytes(disk.total) }}</small>
+    </article>
+  </section>
+
+  <div class="admin-two-column">
+    <section class="card admin-panel">
+      <div class="section-heading">
+        <div><span class="eyebrow">MAINTENANCE</span><h2>维护模式</h2></div>
+      </div>
+      <p class="muted">开启后暂停前台与API交付，后台、登录、健康探针仍可访问；就绪探针会返回503。</p>
+      <form method="post" action="{{ url_for('admin.update_maintenance') }}" class="stack-form">
+        {{ maintenance_form.hidden_tag() }}
+        <label class="setting-toggle">
+          {{ maintenance_form.enabled() }}
+          <span><strong>{{ maintenance_form.enabled.label.text }}</strong><small>让访客收到统一的503维护提示</small></span>
+        </label>
+        <label>{{ maintenance_form.message.label }}{{ maintenance_form.message(maxlength=160) }}</label>
+        {{ maintenance_form.submit(class_="button button--primary") }}
+      </form>
+    </section>
+
+    <section class="card admin-panel">
+      <div class="section-heading">
+        <div><span class="eyebrow">BACKUP</span><h2>创建可验证备份</h2></div>
+      </div>
+      <p class="muted">备份包含在线SQLite快照、数据库已跟踪的原图与缩略图、逐文件SHA-256清单；不包含配置、日志、缓存和明文令牌。</p>
+      <form method="post" action="{{ url_for('admin.create_backup_admin') }}">
+        {{ empty_form.hidden_tag() }}
+        <button class="button button--primary" type="submit">创建并立即验证</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="card admin-panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">ARCHIVES</span><h2>备份文件</h2></div>
+    </div>
+    <div class="event-list">
+      {% for backup in backups %}
+        <article>
+          <i></i>
+          <span>
+            <strong>{{ backup.name }}</strong>
+            <small>{{ format_bytes(backup.size) }} · 保存在本机 instance/backups</small>
+          </span>
+          <form method="post" action="{{ url_for('admin.verify_backup_admin', archive_name=backup.name) }}">
+            {{ empty_form.hidden_tag() }}
+            <button class="button button--soft button--small" type="submit">恢复预检</button>
+          </form>
+        </article>
+      {% else %}
+        <article><i></i><span><strong>还没有备份</strong><small>创建后会在这里显示并可重复验证</small></span></article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="card admin-panel">
+    <div class="section-heading">
+      <div><span class="eyebrow">HISTORY</span><h2>最近运维记录</h2></div>
+    </div>
+    <div class="event-list">
+      {% for record in records %}
+        <article>
+          <i></i>
+          <span>
+            <strong>{{ record.action }} · {{ record.status }}</strong>
+            <small>{{ record.summary }}{% if record.archive_name %} · {{ record.archive_name }}{% endif %}</small>
+          </span>
+          <small>{{ record.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+        </article>
+      {% else %}
+        <article><i></i><span><strong>暂无运维记录</strong><small>维护切换、备份和预检会写入这里</small></span></article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

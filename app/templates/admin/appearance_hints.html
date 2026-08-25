@@ -1,0 +1,27 @@
+{% extends "layouts/admin.html" %}
+{% block title %}提示 · {{ site_name }}{% endblock %}
+{% block admin_title %}提示{% endblock %}
+{% block admin_content %}
+  <form class="card admin-panel interface-hints-panel" method="post" data-hint-settings>
+    {{ form.hidden_tag() }}
+    <div class="section-heading"><div><span class="eyebrow">HELPER COPY</span><h2>菜单小标题</h2><p>需要更紧凑的菜单时，可以把每项下面的小标题收起来。</p></div></div>
+    <div class="hint-control-grid">
+      <label class="choice-card hint-control-card">
+        <input type="checkbox" name="admin_menu_subtitles_visible" value="y" {{ 'checked' if subtitles_visible }}>
+        <span><strong>显示菜单小标题</strong><small>覆盖后台全部母菜单与子菜单。</small></span>
+      </label>
+    </div>
+    <section class="hint-catalog">
+      <div class="section-heading"><div><span class="eyebrow">PREVIEW</span><h3>菜单范围</h3></div></div>
+      <div class="hint-catalog-grid">
+        {% for title, description in [
+          ('仪表盘','站点数据与运行摘要'),('内容管理','图片、相册、收藏与存储'),
+          ('用户管理','账号、角色与权限'),('主题','提示、动画与弹窗'),
+          ('统一登录','登录连接与入口控制'),('系统管理','运维、日志与系统设置'),
+          ('图片交付','自己的图片与相册')
+        ] %}<article><strong>{{ title }}</strong><small>{{ description }}</small></article>{% endfor %}
+      </div>
+    </section>
+    <div class="sticky-form-actions"><button class="button button--primary" type="submit">保存提示设置</button></div>
+  </form>
+{% endblock %}

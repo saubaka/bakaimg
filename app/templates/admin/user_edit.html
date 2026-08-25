@@ -1,0 +1,20 @@
+{% extends "layouts/admin.html" %}
+{% block title %}管理 {{ user.username }} · {{ system_name }}{% endblock %}
+{% block admin_title %}管理账号{% endblock %}
+{% block admin_content %}
+  <section class="card admin-panel editor-card">
+    <div class="section-heading"><div><span class="eyebrow">USER #{{ user.id }}</span><h2>{{ user.display_name }} <small>@{{ user.username }}</small></h2></div><a class="button button--soft" href="{{ url_for('admin.users') }}">返回列表</a></div>
+    <form class="soft-form form-grid" method="post">
+      {{ form.hidden_tag() }}
+      <label>{{ form.display_name.label }}{{ form.display_name() }}</label>
+      <label>{{ form.email.label }}{{ form.email(type="email") }}</label>
+      <label>{{ form.status.label }}{{ form.status(list="status-options") }}<datalist id="status-options"><option value="active"><option value="disabled"></datalist><small>active 或 disabled</small></label>
+      <label>{{ form.storage_quota_mb.label }}{{ form.storage_quota_mb() }}<small>已使用 {{ format_bytes(used_bytes) }}</small></label>
+      <label>{{ form.image_quota_count.label }}{{ form.image_quota_count() }}<small>已使用 {{ used_count }} 张</small></label>
+      <fieldset class="form-span role-fieldset"><legend>{{ form.role_ids.label.text }}</legend>{% for choice in form.role_ids %}<label class="check-field">{{ choice }}<span>{{ choice.label.text }}</span></label>{% endfor %}</fieldset>
+      {% for field in form if field.errors %}{% for error in field.errors %}<small class="form-error form-span">{{ error }}</small>{% endfor %}{% endfor %}
+      <div class="form-span">{{ form.submit(class="button button--primary") }}</div>
+    </form>
+    <p class="security-note">最后一个有效超级管理员无法被停用，也无法移除超级管理员角色。</p>
+  </section>
+{% endblock %}

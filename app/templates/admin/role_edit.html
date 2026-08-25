@@ -1,0 +1,16 @@
+{% extends "layouts/admin.html" %}
+{% block title %}角色 {{ role.name }} · {{ system_name }}{% endblock %}
+{% block admin_title %}编辑角色{% endblock %}
+{% block admin_content %}
+  <section class="card admin-panel editor-card">
+    <div class="section-heading"><div><span class="eyebrow">{{ role.code }}</span><h2>{{ role.name }}</h2></div><a class="button button--soft" href="{{ url_for('admin.roles') }}">返回角色</a></div>
+    {% if role.code == 'superadmin' %}<p class="security-note">超级管理员始终拥有全部权限，此处仅供查看。</p>{% endif %}
+    <form class="soft-form" method="post">
+      {{ form.hidden_tag() }}
+      <label>{{ form.name.label }}{{ form.name(disabled=role.code == 'superadmin') }}</label>
+      <label>{{ form.description.label }}{{ form.description(disabled=role.code == 'superadmin') }}</label>
+      <fieldset class="role-fieldset"><legend>{{ form.permission_ids.label.text }}</legend>{% for choice in form.permission_ids %}<label class="check-field">{{ choice(disabled=role.code == 'superadmin') }}<span>{{ choice.label.text }}</span></label>{% endfor %}</fieldset>
+      {% if role.code != 'superadmin' %}{{ form.submit(class="button button--primary") }}{% endif %}
+    </form>
+  </section>
+{% endblock %}

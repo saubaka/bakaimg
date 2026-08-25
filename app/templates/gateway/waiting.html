@@ -1,0 +1,21 @@
+{% extends "layouts/site.html" %}
+{% block title %}正在前往登录 · {{ site_name }}{% endblock %}
+{% block content %}
+  <section class="gateway-call-waiting" data-gateway-auto-continue data-continue-url="{{ continue_url }}" data-continue-delay="1100">
+    <div class="gateway-call-waiting__card card" data-reveal>
+      <div class="gateway-call-waiting__visual" aria-hidden="true">
+        <span class="brand-mark"><i></i><i></i><i></i></span><i></i><i></i><i></i>
+      </div>
+      <span class="eyebrow">登录</span>
+      <h1>正在打开登录页面</h1>
+      <p>完成登录后，你会自动回到刚才的位置。</p>
+      <div class="gateway-call-progress" aria-label="正在前往登录"><i></i></div>
+      <div class="gateway-call-steps">
+        <span class="is-active">✓ 准备好了</span>
+        <span>前往登录</span>
+        <span>返回首页</span>
+      </div>
+      <a class="button button--primary" href="{{ continue_url }}">现在前往</a>
+    </div>
+  </section>
+{% endblock %}

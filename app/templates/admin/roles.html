@@ -1,0 +1,13 @@
+{% extends "layouts/admin.html" %}
+{% block title %}角色 · {{ system_name }}{% endblock %}
+{% block admin_title %}角色与权限{% endblock %}
+{% block admin_content %}
+  <section class="card admin-panel">
+    <div class="section-heading"><div><span class="eyebrow">RBAC</span><h2>内置角色</h2></div></div>
+    <div class="role-grid">
+      {% for role in roles %}
+        <article class="card role-card"><span class="chip">{{ role.code }}</span><h3>{{ role.name }}</h3><p>{{ role.description }}</p><strong>{{ role.permissions|length }} 项权限</strong><a class="button button--soft button--full" href="{{ url_for('admin.edit_role', role_id=role.id) }}">查看与编辑</a></article>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

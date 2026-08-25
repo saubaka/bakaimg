@@ -1,0 +1,14 @@
+{% extends "layouts/admin.html" %}
+{% block title %}API令牌治理 · {{ system_name }}{% endblock %}
+{% block admin_title %}API令牌治理{% endblock %}
+{% block admin_content %}
+  <section class="card admin-panel">
+    <div class="section-heading"><div><span class="eyebrow">TOKEN GOVERNANCE</span><h2>全站API令牌</h2></div><span class="phase-badge">完整令牌永不保存</span></div>
+    <form class="search-form search-form--filters" method="get"><input name="q" value="{{ query }}" placeholder="搜索名称、前缀或用户名"><select name="status"><option value="all" {{ 'selected' if status == 'all' }}>全部状态</option><option value="active" {{ 'selected' if status == 'active' }}>有效</option><option value="revoked" {{ 'selected' if status == 'revoked' }}>已撤销</option><option value="expired" {{ 'selected' if status == 'expired' }}>已过期</option></select><button class="button button--soft">筛选</button></form>
+    <div class="token-list token-list--admin">
+      {% for token in tokens %}
+        <article><div><strong>{{ token.name }}</strong><small>@{{ token.user.username }} · {{ token.token_prefix }}…</small><small>{{ token.scopes.replace(',', ' / ') }} · {{ token.expires_at.strftime('%Y-%m-%d') }} 到期{% if token.last_used_at %} · 最近使用 {{ token.last_used_at.strftime('%Y-%m-%d %H:%M') }}{% endif %}</small></div><span class="status-tag {{ 'status-tag--muted' if not token.is_active }}">{{ '有效' if token.is_active else ('已撤销' if token.revoked_at else '已过期') }}</span>{% if token.is_active %}<form method="post" data-confirm="确定撤销这枚API令牌吗？" action="{{ url_for('admin.revoke_api_token_admin', token_id=token.id, status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">撤销</button></form>{% endif %}</article>
+      {% else %}<p>当前筛选条件下没有API令牌。</p>{% endfor %}
+    </div>
+  </section>
+{% endblock %}

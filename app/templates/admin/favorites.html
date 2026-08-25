@@ -1,0 +1,14 @@
+{% extends "layouts/admin.html" %}
+{% block title %}收藏治理 · {{ system_name }}{% endblock %}
+{% block admin_title %}收藏治理{% endblock %}
+{% block admin_content %}
+  <section class="card admin-panel">
+    <div class="section-heading"><div><span class="eyebrow">FAVORITE RELATIONS</span><h2>最近收藏关系</h2></div><span class="phase-badge">最多显示200条</span></div>
+    <form class="search-form" method="get"><input name="q" value="{{ query }}" placeholder="搜索用户名、图片标题或文件名"><button class="button button--soft">搜索</button></form>
+    <div class="admin-image-list">
+      {% for favorite in favorites %}
+        <article><img src="{{ url_for('images.media', public_id=favorite.image.public_id, variant='thumbnail') }}" alt="" width="96" height="72" loading="lazy"><div><strong>{{ favorite.image.title or favorite.image.original_name }}</strong><small>@{{ favorite.user.username }} 收藏 · 图片作者 @{{ favorite.image.owner.username }}</small><div class="chip-row"><span class="chip">{{ favorite.image.visibility }}</span><span class="chip">{{ favorite.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div></div><form method="post" data-confirm="只清理收藏关系，不删除图片。确定继续吗？" action="{{ url_for('admin.delete_favorite', favorite_id=favorite.id) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">清理关系</button></form></article>
+      {% else %}<p>当前没有匹配的收藏关系。</p>{% endfor %}
+    </div>
+  </section>
+{% endblock %}

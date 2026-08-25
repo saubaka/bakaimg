@@ -1,0 +1,24 @@
+{% extends "layouts/site.html" %}
+{% block title %}我的相册 · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="page-shell image-library">
+    <section class="card library-hero albums-hero" data-reveal>
+      <div><span class="eyebrow">我的相册</span><h1>把画面整理成册</h1><p>删除相册时，里面的图片仍会保留。</p></div>
+      <a class="button button--primary albums-hero__create" href="{{ url_for('images.create_album') }}">新建相册</a>
+    </section>
+    <section class="album-grid">
+      {% for album in albums %}
+        <article class="card album-card" data-reveal>
+          <a class="album-cover" href="{{ url_for('images.edit_album', public_id=album.public_id) }}">
+            {% if album.cover_image %}<img src="{{ url_for('images.media', public_id=album.cover_image.public_id, variant='thumbnail') }}" alt="" loading="lazy">{% else %}<span>☁</span>{% endif %}
+            <i>{{ album.items|length }} 张</i>
+          </a>
+          <div><span class="eyebrow">{{ {'private': '仅自己', 'unlisted': '通过链接', 'public': '公开'}[album.visibility] }}</span><h2>{{ album.title }}</h2><p>{{ album.description or '还没有写相册介绍。' }}</p></div>
+          <div class="button-row"><a class="button button--soft button--small" href="{{ url_for('public.album_detail', public_id=album.public_id) }}">查看</a><a class="button button--primary button--small" href="{{ url_for('images.edit_album', public_id=album.public_id) }}">编辑相册</a></div>
+        </article>
+      {% else %}
+        <div class="card empty-cloud"><span>▦</span><h2>还没有相册</h2><p>选几张图片，整理成属于你的相册。</p><a class="button button--primary" href="{{ url_for('images.create_album') }}">创建第一个相册</a></div>
+      {% endfor %}
+    </section>
+  </div>
+{% endblock %}

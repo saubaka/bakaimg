@@ -1,0 +1,48 @@
+{% extends "layouts/site.html" %}
+{% block title %}发现 · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="page-shell discover-page">
+    <section class="discover-hero card" data-reveal>
+      <div><span class="eyebrow">发现</span><h1>看看大家分享的图片。</h1><p>搜索公开图片和相册。</p></div>
+      <form class="discover-search" method="get">
+        <label><span class="sr-only">搜索公开内容</span><input name="q" value="{{ query }}" placeholder="搜索标题、作者或故事"></label>
+        <div class="discover-menu" data-discover-menu>
+          <input type="hidden" name="sort" value="{{ sort }}" data-discover-menu-value>
+          <button class="discover-menu__trigger" type="button" aria-haspopup="menu" aria-expanded="false" data-discover-menu-trigger>
+            <span data-discover-menu-label>{{ '大家常看' if sort == 'popular' else '最新分享' }}</span><i aria-hidden="true"></i>
+          </button>
+          <div class="discover-menu__panel" role="menu" hidden data-discover-menu-panel>
+            <button type="button" role="menuitemradio" aria-checked="{{ 'true' if sort == 'newest' else 'false' }}" data-discover-menu-option="newest"><span>最新分享</span><small>先看最近发布的内容</small></button>
+            <button type="button" role="menuitemradio" aria-checked="{{ 'true' if sort == 'popular' else 'false' }}" data-discover-menu-option="popular"><span>大家常看</span><small>先看浏览较多的内容</small></button>
+          </div>
+        </div>
+        <button class="button button--primary">找一找</button>
+      </form>
+    </section>
+
+    {% if albums %}
+      <section class="section">
+        <div class="section-heading"><div><span class="eyebrow">相册</span><h2>公开相册</h2></div><span class="phase-badge">{{ albums|length }} 本</span></div>
+        <div class="album-grid">
+          {% for album in albums %}
+            <a class="card album-card album-card--link" href="{{ url_for('public.album_detail', public_id=album.public_id) }}" data-reveal>
+              <span class="album-cover">{% if album.cover_image %}<img src="{{ url_for('images.media', public_id=album.cover_image.public_id, variant='thumbnail') }}" alt="" loading="lazy">{% else %}<span>▧</span>{% endif %}<i>{{ album.items|length }} 张</i></span>
+              <span><small>{{ '精选相册 · ' if album.is_featured }}@{{ album.owner.username }}</small><strong>{{ album.title }}</strong><em>{{ album.description or '一本安静的图片相册。' }}</em></span>
+            </a>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="section">
+      <div class="section-heading"><div><span class="eyebrow">画廊</span><h2>公开画廊</h2></div><span class="phase-badge">{{ images|length }} 张</span></div>
+      <div class="discovery-image-grid discovery-image-grid--masonry">
+        {% for image in images %}
+          <a class="card discovery-tile" href="{{ url_for('public.share_image', public_id=image.public_id) }}" data-reveal>{% if image.id in favorite_ids %}<i class="favorite-mark" aria-label="已收藏">♥</i>{% endif %}<img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="{{ image.alt_text or image.title }}" loading="lazy"><span><strong>{{ image.title or image.original_name }}</strong><small>@{{ image.owner.username }} · {{ image.view_count }} 次浏览</small></span></a>
+        {% else %}
+          <div class="card empty-cloud"><span>⌕</span><h2>还没有找到公开画面</h2><p>{{ '换一个关键词再找找。' if query else '公开分享的图片会显示在这里。' }}</p></div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

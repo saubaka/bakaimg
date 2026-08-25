@@ -1,0 +1,31 @@
+{% extends "layouts/site.html" %}
+{% block title %}我的图库 · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="page-shell image-library">
+    <section class="card library-hero" data-reveal>
+      <div class="library-hero__heading"><span class="eyebrow">我的图片</span><h1>图库</h1><p>这里会随图片变化自动更新。</p></div>
+      <div class="library-live-stats" aria-label="图库统计">
+        <article><span>图片总数</span><strong data-library-stat="total">{{ used_count }}</strong><small>张</small></article>
+        <article><span>已用容量</span><strong data-library-stat="bytes">{{ format_bytes(used_bytes) }}</strong><small>当前</small></article>
+        <article><span>使用中</span><strong data-library-stat="active">{{ status_counts.active }}</strong><small>张</small></article>
+        <article><span>回收站</span><strong data-library-stat="trashed">{{ status_counts.trashed }}</strong><small>张</small></article>
+      </div>
+      <div class="library-hero__actions"><a class="button button--soft" href="{{ url_for('images.albums') }}">管理相册</a><a class="button button--primary" href="{{ url_for('images.upload') }}">上传图片</a></div>
+    </section>
+    <nav class="library-tabs" aria-label="图片状态" data-library-tabs>
+      <span class="library-tabs__indicator" aria-hidden="true" data-library-tab-indicator></span>
+      <a class="{{ 'is-current' if status == 'active' }}" href="{{ url_for('images.library', status='active') }}" data-library-filter="active" data-no-transition>使用中</a>
+      <a class="{{ 'is-current' if status == 'quarantined' }}" href="{{ url_for('images.library', status='quarantined') }}" data-library-filter="quarantined" data-no-transition>已隔离</a>
+      <a class="{{ 'is-current' if status == 'trashed' }}" href="{{ url_for('images.library', status='trashed') }}" data-library-filter="trashed" data-no-transition>回收站</a>
+    </nav>
+    <div class="library-results" data-library-results aria-live="polite" aria-busy="false">
+      <div class="library-filter-loader" hidden data-library-filter-loader><span aria-hidden="true"></span><small>正在读取图片</small></div>
+      <section class="image-grid" data-library-grid>{% include "images/_library_cards.html" %}</section>
+      <div class="library-more" data-library-more-shell {% if not has_more %}hidden{% endif %}>
+        <a class="library-more__button" href="{{ url_for('images.library', status=status, page=next_page) }}" data-library-more data-no-transition>
+          <i aria-hidden="true"></i><span data-library-more-label>继续加载</span><b aria-hidden="true"></b>
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock %}

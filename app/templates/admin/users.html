@@ -1,0 +1,19 @@
+{% extends "layouts/admin.html" %}
+{% block title %}用户 · {{ system_name }}{% endblock %}
+{% block admin_title %}用户与账号{% endblock %}
+{% block admin_content %}
+  <section class="card admin-panel">
+    <div class="section-heading"><div><span class="eyebrow">ACCOUNTS</span><h2>全部用户</h2></div></div>
+    <form class="search-form" method="get"><input name="q" value="{{ query }}" placeholder="搜索用户名、邮箱或显示名"><button class="button button--soft" type="submit">搜索</button></form>
+    <div class="data-list">
+      {% for user in users %}
+        <article>
+          <div class="soft-avatar soft-avatar--small">{{ user.display_name[:1] }}</div>
+          <div><strong>{{ user.display_name }}</strong><small>@{{ user.username }} · {{ user.email }}</small><div class="chip-row">{% for role in user.roles %}<span class="chip">{{ role.name }}</span>{% endfor %}</div></div>
+          <span class="status-tag {{ 'status-tag--muted' if user.status != 'active' }}">{{ '有效' if user.status == 'active' else '停用' }}</span>
+          {% if current_user.has_permission('users.manage') %}<a class="button button--soft button--small" href="{{ url_for('admin.edit_user', user_id=user.id) }}">管理</a>{% endif %}
+        </article>
+      {% else %}<p>没有找到账号。</p>{% endfor %}
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "layouts/admin.html" %}
+{% block title %}图片审核 · {{ system_name }}{% endblock %}
+{% block admin_title %}图片审核{% endblock %}
+{% block admin_content %}
+  <section class="card admin-panel">
+    <div class="section-heading"><div><span class="eyebrow">GLOBAL IMAGE LIBRARY</span><h2>全站图片</h2></div><a class="button button--soft" href="{{ url_for('admin.storage') }}">存储概览</a></div>
+    <form class="search-form search-form--filters" method="get"><input name="q" value="{{ query }}" placeholder="搜索标题、文件名或用户名"><select name="status"><option value="all" {{ 'selected' if status == 'all' }}>全部状态</option><option value="active" {{ 'selected' if status == 'active' }}>使用中</option><option value="quarantined" {{ 'selected' if status == 'quarantined' }}>已隔离</option><option value="trashed" {{ 'selected' if status == 'trashed' }}>回收站</option></select><button class="button button--soft">筛选</button></form>
+    <div class="admin-image-list">
+      {% for image in images %}
+        <article><img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="" width="96" height="72" loading="lazy"><div><strong>{{ image.title or image.original_name }}</strong><small>@{{ image.owner.username }} · {{ image.image_format }} · {{ image.width }}×{{ image.height }} · {{ format_bytes(image.byte_size) }}</small><div class="chip-row"><span class="chip">{{ image.status }}</span><span class="chip">{{ image.visibility }}</span><span class="chip">{{ image.moderation_status }}</span></div></div><div class="image-actions">{% if image.status != 'active' %}<form method="post" action="{{ url_for('admin.image_action', image_id=image.id, action='approve', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small">通过</button></form>{% endif %}{% if image.status != 'quarantined' %}<form method="post" action="{{ url_for('admin.image_action', image_id=image.id, action='quarantine', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">隔离</button></form>{% endif %}{% if image.status != 'trashed' %}<form method="post" action="{{ url_for('admin.image_action', image_id=image.id, action='trash', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small">回收</button></form>{% else %}<form method="post" data-confirm="确定永久删除这张图片吗？" action="{{ url_for('admin.image_action', image_id=image.id, action='purge', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">永久删除</button></form>{% endif %}</div></article>
+      {% else %}<p>当前筛选条件下没有图片。</p>{% endfor %}
+    </div>
+  </section>
+{% endblock %}

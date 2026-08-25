@@ -1,0 +1,45 @@
+{% extends "layouts/admin.html" %}
+{% block title %}弹窗 · {{ site_name }}{% endblock %}
+{% block admin_title %}弹窗{% endblock %}
+{% block admin_content %}
+  <form class="card admin-panel dialog-appearance-settings" method="post" data-dialog-appearance-settings>
+    {{ form.hidden_tag() }}
+    <div class="section-heading"><div><span class="eyebrow">DIALOG APPEARANCE</span><h2>全站弹窗主题</h2></div></div>
+    <div class="dialog-style-grid">
+      {% for option in form.dialog_style %}
+        {% set style = option.data %}
+        <label class="dialog-style-choice dialog-style-choice--{{ style }}">
+          {{ option }}
+          <span class="dialog-style-choice__preview" aria-hidden="true"><i></i><b></b><em></em></span>
+          <span><strong>{{ option.label.text }}</strong></span>
+        </label>
+      {% endfor %}
+    </div>
+    <section class="appearance-color-card">
+      <div><span class="eyebrow">DIALOG COLORS</span><h3>弹窗配色</h3></div>
+      <div class="appearance-color-grid">
+        {% for field in (form.dialog_color_start, form.dialog_color_end, form.dialog_accent) %}
+          <label class="appearance-color-field"><span>{{ field.label.text }}</span>{{ field(type='color') }}<code data-color-value>{{ field.data }}</code>{% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}</label>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="dialog-shape-card">
+      <div><span class="eyebrow">SHAPE & SIZE</span><h3>轮廓与尺寸</h3></div>
+      <div class="dialog-metric-grid">
+        {% for field, key, minimum, maximum, step, unit in ((form.dialog_radius,'radius',14,42,1,'px'),(form.dialog_width,'width',360,720,10,'px'),(form.dialog_backdrop_blur,'blur',0,30,1,'px')) %}
+          <div class="dialog-metric-control">
+            <label for="{{ field.id }}"><span>{{ field.label.text }}</span><output data-dialog-output="{{ key }}">{{ field.data }} {{ unit }}</output></label>
+            <input type="range" min="{{ minimum }}" max="{{ maximum }}" step="{{ step }}" value="{{ field.data }}" data-dialog-range="{{ key }}" aria-label="{{ field.label.text }}滑块">
+            {{ field(min=minimum,max=maximum,step=step,data_dialog_value=key) }}
+          </div>
+        {% endfor %}
+      </div>
+      <fieldset class="dialog-shadow-fieldset"><legend>{{ form.dialog_shadow.label.text }}</legend><div class="dialog-shadow-options">{% for option in form.dialog_shadow %}<label>{{ option }}<span>{{ option.label.text }}</span></label>{% endfor %}</div></fieldset>
+    </section>
+    <section class="dialog-preview-panel">
+      <div><h3>弹窗预览</h3></div>
+      <div class="button-row"><button class="button button--soft" type="button" data-dialog-preview="confirm">确认弹窗</button><button class="button button--soft" type="button" data-dialog-preview="prompt">输入弹窗</button><button class="button button--primary" type="button" data-dialog-preview="alert">提示弹窗</button></div>
+    </section>
+    <div class="sticky-form-actions">{{ form.submit(class='button button--primary') }}</div>
+  </form>
+{% endblock %}

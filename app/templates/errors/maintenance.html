@@ -1,0 +1,13 @@
+{% extends "layouts/site.html" %}
+{% block title %}正在整理 · {{ site_name }}{% endblock %}
+{% block content %}
+  <main id="main-content" class="page-shell">
+    <section class="card empty-state" data-reveal>
+      <span class="eyebrow">稍等一下</span>
+      <div class="empty-state-icon" aria-hidden="true">☁</div>
+      <h1>正在整理图片</h1>
+      <p>{{ message }}</p>
+      <p class="muted">整理好后，这里就会重新开放。</p>
+    </section>
+  </main>
+{% endblock %}

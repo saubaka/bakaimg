@@ -1,0 +1,103 @@
+{% extends "layouts/base.html" %}
+{% from "components/macros.html" import icon %}
+
+{% macro admin_child(key, label, description, href, current=false) -%}
+  <a data-admin-child-key="{{ key }}" class="{{ 'is-current' if current }}" href="{{ href }}"><span>{{ label }}</span>{% if description %}<small>{{ description }}</small>{% endif %}</a>
+{%- endmacro %}
+
+{% block body_class %}admin-body{% endblock %}
+{% block body %}
+  {% set endpoint = request.endpoint or '' %}
+  {% set dashboard_active = endpoint == 'admin.dashboard' %}
+  {% set content_active = endpoint in ['admin.images','admin.image_action','admin.albums','admin.album_action','admin.favorites','admin.delete_favorite','admin.storage','admin.api_tokens','admin.revoke_api_token_admin'] %}
+  {% set users_active = endpoint in ['admin.users','admin.edit_user','admin.roles','admin.edit_role'] %}
+  {% set appearance_active = endpoint in ['admin.appearance_hints','admin.transition_settings','admin.dialog_appearance'] %}
+  {% set gateway_active = endpoint in ['admin.gateway_settings','admin.gateway_connection_save','admin.gateway_connection_delete','admin.gateway_unlink'] %}
+  {% set system_active = endpoint in ['admin.audit','admin.operations','admin.update_maintenance','admin.create_backup_admin','admin.verify_backup_admin'] %}
+  <div class="admin-shell{% if not admin_menu_subtitles_visible %} admin-menu--compact{% endif %}">
+    <aside class="admin-sidebar" id="admin-sidebar" aria-label="后台导航">
+      <a class="admin-brand" href="{{ url_for('admin.dashboard') }}">
+        <span class="brand-mark" aria-hidden="true">{{ icon('cloud') }}</span>
+        <span>{{ system_name }}<small>{{ system_name_en }}</small></span>
+      </a>
+      <nav class="admin-nav" aria-label="后台功能分类" data-admin-navigation>
+        <section class="admin-nav-group admin-nav-direct {{ 'is-open' if dashboard_active }}" data-admin-menu-group data-menu-key="dashboard">
+          <a class="admin-nav-group__toggle {{ 'is-current' if dashboard_active }}" href="{{ url_for('admin.dashboard') }}">{{ icon('home') }}<span><strong>仪表盘</strong><small>站点数据与运行摘要</small></span></a>
+        </section>
+
+        {% if current_user.has_permission('images.moderate') or current_user.has_permission('api.tokens.admin') %}
+          <section class="admin-nav-group {{ 'is-open' if content_active }}" data-admin-menu-group data-menu-key="content">
+            <button class="admin-nav-group__toggle" type="button" data-admin-menu-toggle aria-expanded="{{ 'true' if content_active else 'false' }}" aria-controls="admin-menu-content">{{ icon('image') }}<span><strong>内容管理</strong><small>图片、相册、收藏与存储</small></span>{{ icon('arrow-down', 'admin-nav-group__chevron') }}</button>
+            <div class="admin-nav-group__items" id="admin-menu-content"><div>
+              {% if current_user.has_permission('images.moderate') %}
+                {{ admin_child('images','图片审核','全站图片与回收站',url_for('admin.images'),endpoint in ['admin.images','admin.image_action']) }}
+                {{ admin_child('albums','相册治理','隐藏、精选与清理',url_for('admin.albums'),endpoint in ['admin.albums','admin.album_action']) }}
+                {{ admin_child('favorites','收藏治理','收藏关系与图片',url_for('admin.favorites'),endpoint in ['admin.favorites','admin.delete_favorite']) }}
+                {{ admin_child('storage','存储与配额','容量使用情况',url_for('admin.storage'),endpoint == 'admin.storage') }}
+              {% endif %}
+              {% if current_user.has_permission('api.tokens.admin') %}{{ admin_child('api-tokens','应用钥匙','到期、权限与收回',url_for('admin.api_tokens'),endpoint in ['admin.api_tokens','admin.revoke_api_token_admin']) }}{% endif %}
+            </div></div>
+          </section>
+        {% endif %}
+
+        {% if current_user.has_permission('users.view') or current_user.has_permission('roles.manage') %}
+          <section class="admin-nav-group {{ 'is-open' if users_active }}" data-admin-menu-group data-menu-key="users">
+            <button class="admin-nav-group__toggle" type="button" data-admin-menu-toggle aria-expanded="{{ 'true' if users_active else 'false' }}" aria-controls="admin-menu-users">{{ icon('person') }}<span><strong>用户管理</strong><small>账号、角色与权限</small></span>{{ icon('arrow-down', 'admin-nav-group__chevron') }}</button>
+            <div class="admin-nav-group__items" id="admin-menu-users"><div>
+              {% if current_user.has_permission('users.view') %}{{ admin_child('users','账号管理','状态、容量与角色',url_for('admin.users'),endpoint in ['admin.users','admin.edit_user']) }}{% endif %}
+              {% if current_user.has_permission('roles.manage') %}{{ admin_child('roles','角色与权限','维护权限组合',url_for('admin.roles'),endpoint in ['admin.roles','admin.edit_role']) }}{% endif %}
+            </div></div>
+          </section>
+        {% endif %}
+
+        {% if current_user.has_permission('system.maintain') %}
+          <section class="admin-nav-group {{ 'is-open' if appearance_active }}" data-admin-menu-group data-menu-key="appearance">
+            <button class="admin-nav-group__toggle" type="button" data-admin-menu-toggle aria-expanded="{{ 'true' if appearance_active else 'false' }}" aria-controls="admin-menu-appearance">{{ icon('spark') }}<span><strong>主题</strong><small>提示、动画与弹窗</small></span>{{ icon('arrow-down', 'admin-nav-group__chevron') }}</button>
+            <div class="admin-nav-group__items" id="admin-menu-appearance"><div>
+              {{ admin_child('hints','提示','控制后台菜单小标题',url_for('admin.appearance_hints'),endpoint == 'admin.appearance_hints') }}
+              {{ admin_child('transitions','动画','页面过渡、时长与遮罩颜色',url_for('admin.transition_settings'),endpoint == 'admin.transition_settings') }}
+              {{ admin_child('dialogs','弹窗','主题、尺寸、阴影与颜色',url_for('admin.dialog_appearance'),endpoint == 'admin.dialog_appearance') }}
+            </div></div>
+          </section>
+
+          <section class="admin-nav-group {{ 'is-open' if gateway_active }}" data-admin-menu-group data-menu-key="gateway">
+            <button class="admin-nav-group__toggle" type="button" data-admin-menu-toggle aria-expanded="{{ 'true' if gateway_active else 'false' }}" aria-controls="admin-menu-gateway">{{ icon('cloud') }}<span><strong>统一登录</strong><small>登录连接与入口控制</small></span>{{ icon('arrow-down', 'admin-nav-group__chevron') }}</button>
+            <div class="admin-nav-group__items" id="admin-menu-gateway"><div>{{ admin_child('gateway','网关连接','连接状态与管理员绑定',url_for('admin.gateway_settings'),gateway_active) }}</div></div>
+          </section>
+        {% endif %}
+
+        {% if current_user.has_permission('audit.view') or current_user.has_permission('system.maintain') %}
+          <section class="admin-nav-group {{ 'is-open' if system_active }}" data-admin-menu-group data-menu-key="system">
+            <button class="admin-nav-group__toggle" type="button" data-admin-menu-toggle aria-expanded="{{ 'true' if system_active else 'false' }}" aria-controls="admin-menu-system">{{ icon('settings') }}<span><strong>系统管理</strong><small>运维、日志与系统设置</small></span>{{ icon('arrow-down', 'admin-nav-group__chevron') }}</button>
+            <div class="admin-nav-group__items" id="admin-menu-system"><div>
+              {% if current_user.has_permission('system.maintain') %}{{ admin_child('operations','运维中心','一致性、备份与维护',url_for('admin.operations'),endpoint in ['admin.operations','admin.update_maintenance','admin.create_backup_admin','admin.verify_backup_admin']) }}{% endif %}
+              {% if current_user.has_permission('audit.view') %}{{ admin_child('audit','操作日志','登录与后台操作记录',url_for('admin.audit'),endpoint == 'admin.audit') }}{% endif %}
+            </div></div>
+          </section>
+        {% endif %}
+
+        <section class="admin-nav-group" data-admin-menu-group data-menu-key="delivery">
+          <button class="admin-nav-group__toggle" type="button" data-admin-menu-toggle aria-expanded="false" aria-controls="admin-menu-delivery">{{ icon('image') }}<span><strong>图片交付</strong><small>自己的图片与相册</small></span>{{ icon('arrow-down', 'admin-nav-group__chevron') }}</button>
+          <div class="admin-nav-group__items" id="admin-menu-delivery"><div>
+            {{ admin_child('my-images','我的图库','上传与链接管理',url_for('images.library')) }}
+            {{ admin_child('my-albums','我的相册','图片编排与分享',url_for('images.albums')) }}
+          </div></div>
+        </section>
+      </nav>
+      <div class="admin-profile">
+        <span class="avatar avatar--small">{{ current_user.display_name[:1] }}</span>
+        <span><strong>{{ current_user.display_name }}</strong><small>{{ current_user.username }}</small></span>
+        <form method="post" action="{{ url_for('gateway.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="icon-button icon-button--small" type="submit" aria-label="退出登录">↗</button></form>
+      </div>
+    </aside>
+    <div class="admin-workspace">
+      <header class="admin-topbar">
+        <button class="icon-button admin-menu-button" type="button" data-admin-drawer aria-controls="admin-sidebar" aria-expanded="false" aria-label="打开后台菜单">{{ icon('menu') }}</button>
+        <div class="admin-topbar__title"><span class="eyebrow">{{ app_version }}</span><h1>{% block admin_title %}管理后台{% endblock %}</h1></div>
+        <div class="admin-topbar__actions"><a class="button button--soft" href="{{ url_for('public.home') }}">查看前台</a></div>
+      </header>
+      <main id="main-content" class="admin-main" tabindex="-1">{% block admin_content %}{% endblock %}</main>
+    </div>
+  </div>
+  <div class="drawer-backdrop" data-admin-backdrop hidden></div>
+{% endblock %}

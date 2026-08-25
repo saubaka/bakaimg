@@ -1,0 +1,17 @@
+{% extends "layouts/site.html" %}
+{% block title %}隐私说明 · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="page-shell policy-shell">
+    <section class="card policy-card" data-reveal>
+      <span class="eyebrow">隐私说明</span>
+      <h1>你的内容，只按你的选择展示</h1>
+      <p>登录时，只会读取你同意提供的名字、邮箱和头像，不会保存你的登录密码。</p>
+      <h2>会保存什么</h2>
+      <p>为了让你继续使用，系统会保存账号资料、登录设备、图片、相册和收藏。</p>
+      <h2>谁能看到图片</h2>
+      <p>上传和编辑时，你可以选择仅自己可见、通过链接分享或公开展示。</p>
+      <h2>如何管理</h2>
+      <p>你可以随时修改公开范围、移除图片、退出设备，或前往个人中心管理账号。</p>
+    </section>
+  </div>
+{% endblock %}

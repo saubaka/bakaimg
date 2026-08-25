@@ -1,0 +1,85 @@
+{% extends "layouts/site.html" %}
+{% block title %}{{ site_name }} · {{ site_tagline }}{% endblock %}
+{% block content %}
+  <div class="page-shell home-page">
+    <section class="hero-grid">
+      <div class="hero-copy" data-reveal>
+        <span class="eyebrow">把喜欢的画面收好</span>
+        <h1>把喜欢的画面，<br><em>认真收藏起来。</em></h1>
+        <p>上传、整理、收藏和分享，都可以轻松完成。</p>
+        <div class="hero-actions">
+          <a class="button button--primary" href="{{ url_for('images.upload') if current_user.is_authenticated and current_user.has_permission('images.upload') else (url_for('gateway.login', next=url_for('images.upload')) if gateway_enabled else url_for('public.home')) }}">开始上传</a>
+          <a class="button button--soft" href="{{ url_for('public.discover') }}">逛逛公开画廊</a>
+        </div>
+        <div class="hero-chips" aria-label="可以做什么">
+          <span>随手上传</span><span>轻松整理</span><span>放心分享</span><span>随时找回</span>
+        </div>
+      </div>
+
+      <div class="hero-showcase card" data-reveal aria-label="图片整理示例">
+        <div class="hero-showcase__header">
+          <span><i aria-hidden="true"></i>最近整理</span>
+          <em>已保存</em>
+        </div>
+        <div class="hero-showcase__collage">
+          {% for image in recent_images[:3] %}
+            <figure class="hero-showcase__photo hero-showcase__photo--{{ loop.index }}">
+              <img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="{{ image.alt_text or image.title }}" loading="eager">
+            </figure>
+          {% else %}
+            <figure class="hero-showcase__photo hero-showcase__photo--1"><span aria-hidden="true">✦</span></figure>
+            <figure class="hero-showcase__photo hero-showcase__photo--2"><span aria-hidden="true">◌</span></figure>
+            <figure class="hero-showcase__photo hero-showcase__photo--3"><span aria-hidden="true">♡</span></figure>
+          {% endfor %}
+        </div>
+        <div class="hero-showcase__footer">
+          <span><strong>今天的片段</strong><small>按时间排好，随时可以查看</small></span>
+          <b>{{ recent_images|length if recent_images else 3 }} 张</b>
+        </div>
+      </div>
+    </section>
+
+    {% if recent_images or featured_albums %}
+      <section class="section discovery-preview">
+        <div class="section-heading"><div><span class="eyebrow">最新分享</span><h2>刚刚分享的画面</h2></div><a class="button button--soft" href="{{ url_for('public.discover') }}">查看全部</a></div>
+        <div class="discovery-image-grid">
+          {% for image in recent_images %}
+            <a class="card discovery-tile" href="{{ url_for('public.share_image', public_id=image.public_id) }}" data-reveal><img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="{{ image.alt_text or image.title }}" loading="lazy"><span><strong>{{ image.title or image.original_name }}</strong><small>来自 @{{ image.owner.username }}</small></span></a>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="section">
+      <div class="section-heading">
+        <div><span class="eyebrow">慢慢整理</span><h2>让每张图片都有自己的位置</h2></div>
+      </div>
+      <div class="feature-grid">
+        <article class="card feature-card" data-reveal>
+          <span class="soft-icon tone-blue">01</span>
+          <h3>轻轻收藏</h3>
+          <p>看到喜欢的公开图片，点一下就能留在收藏里。</p>
+        </article>
+        <article class="card feature-card" data-reveal>
+          <span class="soft-icon tone-pink">02</span>
+          <h3>整理成册</h3>
+          <p>把同一段回忆放进相册，也可以调整它们的顺序。</p>
+        </article>
+        <article class="card feature-card" data-reveal>
+          <span class="soft-icon tone-mint">03</span>
+          <h3>分享出去</h3>
+          <p>复制图片或相册链接，就能分享给别人。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section next-stage-card card" data-reveal>
+      <div>
+        <span class="eyebrow">你的收藏</span>
+        <h2>想看的时候，随时回来</h2>
+        <p>继续发现新的画面，或者回到自己的图库慢慢整理。</p>
+      </div>
+      <a class="button button--soft" href="{{ url_for('images.library') if current_user.is_authenticated and current_user.has_permission('images.manage_own') else url_for('public.discover') }}">{{ '看看我的图片' if current_user.is_authenticated else '继续发现' }}</a>
+    </section>
+  </div>
+{% endblock %}
