@@ -5,12 +5,14 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from werkzeug.exceptions import SecurityError
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import CONFIGS, BaseConfig
@@ -46,6 +48,9 @@ def create_app(
     runtime_site_url = os.getenv("CLOUDNEST_SITE_URL")
     if runtime_site_url:
         app.config["SITE_URL"] = runtime_site_url.rstrip("/")
+    runtime_allowed_host = os.getenv("CLOUDNEST_ALLOWED_HOST")
+    if runtime_allowed_host:
+        app.config["ALLOWED_HOST"] = runtime_allowed_host.strip().lower().rstrip(".")
     runtime_proxy_hops = os.getenv("CLOUDNEST_TRUST_PROXY_HOPS")
     if runtime_proxy_hops:
         try:
@@ -112,8 +117,29 @@ def _validate_production_config(app: Flask) -> None:
     if not app.config.get("TESTING") and app.config["ENV_NAME"] == "production":
         if app.config["SECRET_KEY"] == app.config["DEFAULT_SECRET_KEY"]:
             raise RuntimeError("生产环境必须设置独立的CLOUDNEST_SECRET_KEY。")
-        if not str(app.config["SITE_URL"]).startswith("https://"):
-            raise RuntimeError("生产环境CLOUDNEST_SITE_URL必须使用HTTPS。")
+        site_url = urlsplit(str(app.config["SITE_URL"]))
+        if (
+            site_url.scheme != "https"
+            or not site_url.hostname
+            or site_url.username
+            or site_url.password
+            or site_url.port not in {None, 443}
+            or site_url.path not in {"", "/"}
+            or site_url.query
+            or site_url.fragment
+        ):
+            raise RuntimeError("生产环境CLOUDNEST_SITE_URL必须是仅包含域名的HTTPS地址。")
+
+        allowed_host = str(app.config.get("ALLOWED_HOST") or site_url.hostname).lower().rstrip(".")
+        if not re.fullmatch(
+            r"(?=.{4,253}\Z)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}",
+            allowed_host,
+        ):
+            raise RuntimeError("生产环境必须设置一个有效的CLOUDNEST_ALLOWED_HOST域名。")
+        if allowed_host != site_url.hostname.lower().rstrip("."):
+            raise RuntimeError("CLOUDNEST_ALLOWED_HOST必须与CLOUDNEST_SITE_URL中的域名一致。")
+        app.config["ALLOWED_HOST"] = allowed_host
+        app.config["TRUSTED_HOSTS"] = [allowed_host]
 
 
 def _register_hooks(app: Flask) -> None:
@@ -277,6 +303,14 @@ def _register_context(app: Flask) -> None:
 
 
 def _register_errors(app: Flask) -> None:
+    app.register_error_handler(
+        SecurityError,
+        lambda _error: (
+            "Bad Request",
+            400,
+            {"Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store"},
+        ),
+    )
     for status in (400, 403, 404, 413, 500):
         app.register_error_handler(
             status,

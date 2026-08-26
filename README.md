@@ -2,8 +2,6 @@
 
 baka图床是一个本地优先、可自托管的Flask图片站点：上传、整理、分享、收藏与后台治理一站完成，全部数据保存在你自己的机器上。
 
-> 这是全新未初始化副本：不含数据库、管理员账号、业务内容或任何凭据；按下方“快速开始”执行`start.bat`完成初始化，再用`create-admin`创建首个管理员即可使用。
-
 ## 主要功能
 
 - **安全上传**：支持JPEG、PNG、WebP和GIF；上传内容会真实解码校验、重新编码清除附带元数据，再以随机存储键原子写入，并自动生成WebP缩略图与SHA-256校验和。
@@ -50,6 +48,8 @@ start.bat
 .venv\Scripts\python.exe -m flask --app wsgi:app backup-verify 备份文件名.zip
 ```
 
+Linux生产部署可运行`sudo sh deploy-linux.sh`，默认从`https://github.com/saubaka/bakaimg.git`安装；也可以直接使用根目录的Linux x64单文件`bakaimg`管理器。完整步骤见[`docs/DEBIAN12.md`](docs/DEBIAN12.md)。
+
 ## 技术要点
 
 - Python、Flask、Jinja2、SQLAlchemy、Flask-Migrate与本地SQLite（WAL）。
@@ -58,13 +58,13 @@ start.bat
 - 会话与令牌最小化存储：浏览器会话只存随机令牌，数据库只存SHA-256摘要；OAuth令牌加密保存。
 - 后台操作全部写入审计日志；日志不保存原始IP。
 - 备份使用SQLite在线备份API生成一致性快照，只收录数据库已跟踪的媒体，创建后立即执行完整恢复预检。
-- 生产入口使用Waitress；生产模式强制独立密钥与HTTPS站点地址，信任代理头时必须监听回环地址。
+- 生产入口使用Waitress；Linux只监听动态选择的`127.0.0.1`端口，并由systemd持续托管。
 
 ## 部署概述
 
 - 开发/本地：`start.bat`使用Flask内置服务器，默认`127.0.0.1:5200`。
-- 生产：设置`CLOUDNEST_SECRET_KEY`（高熵随机值）与`CLOUDNEST_SITE_URL`（HTTPS地址）后运行`run-production.bat`。
-- 对外发布建议由反向代理终止HTTPS再转发到回环地址；仅在可信代理后方才设置`CLOUDNEST_TRUST_PROXY_HOPS=1`。
+- Windows生产：设置独立密钥与HTTPS站点地址后运行`run-production.bat`。
+- Debian 12及常见systemd Linux：运行`sudo sh deploy-linux.sh`，或执行`sudo ./bakaimg install 域名 源站证书 私钥`。管理器会配置systemd、自动避让冲突的本地端口、Nginx唯一域名、Cloudflare Origin CA源站证书与日志轮转；不检测Cloudflare IP网段。
 - 恢复只允许停服后在本机命令行执行：`restore-backup 备份文件名.zip --offline --confirm RESTORE`，并会自动生成回滚备份。
 
 ## 目录结构
@@ -73,7 +73,10 @@ start.bat
 app/                    应用源码（工厂、蓝图、服务、模板、静态资源）
 migrations/             Flask-Migrate数据库迁移
 wheelhouse/             离线Python依赖
+wheelhouse-linux-x64/   Debian 12 / Python 3.11离线依赖
 instance/               运行数据（数据库、上传、备份、日志，不入库）
+deploy-linux.sh         Debian 12及常见Linux部署脚本
+bakaimg                 Linux x64单文件管理器
 start.bat               本地初始化与启动入口
 run-production.bat      生产启动入口
 serve.py                Waitress生产服务入口

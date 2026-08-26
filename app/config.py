@@ -6,7 +6,7 @@ from datetime import timedelta
 
 
 class BaseConfig:
-    APP_VERSION = "0.10.6"
+    APP_VERSION = "0.12.0"
     SYSTEM_NAME = "baka图床"
     SYSTEM_NAME_EN = "bakaimg"
     SITE_NAME = "baka图床"
@@ -46,6 +46,8 @@ class BaseConfig:
     BACKUP_MAX_UNCOMPRESSED_BYTES = 64 * 1024 * 1024 * 1024
     BACKUP_RETENTION_COUNT = 20
     TRUST_PROXY_HOPS = 0
+    ALLOWED_HOST = None
+    TRUSTED_HOSTS = None
 
     SESSION_COOKIE_NAME = "cloudnest_session"
     SESSION_COOKIE_HTTPONLY = True

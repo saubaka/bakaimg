@@ -25,11 +25,13 @@ if __name__ == "__main__":
     trusted_hops = int(application.config["TRUST_PROXY_HOPS"])
     if trusted_hops and host not in {"127.0.0.1", "localhost", "::1"}:
         raise RuntimeError("信任转发头时生产服务必须只监听回环地址。")
-    serve(
-        application,
+    options = {
+        "threads": _bounded_integer("CLOUDNEST_THREADS", 8, 2, 64),
+        "ident": "Cloudnest",  # HTTP Server标识为固定契约值，不随品牌名称变化。
+        "clear_untrusted_proxy_headers": not bool(trusted_hops),
+    }
+    options.update(
         host=host,
         port=_bounded_integer("CLOUDNEST_PORT", 5200, 1, 65535),
-        threads=_bounded_integer("CLOUDNEST_THREADS", 8, 2, 64),
-        ident="Cloudnest",  # HTTP Server标识为固定契约值，不随品牌名称变化。
-        clear_untrusted_proxy_headers=not bool(trusted_hops),
     )
+    serve(application, **options)
