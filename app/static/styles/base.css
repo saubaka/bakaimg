@@ -324,3 +324,37 @@ a, .site-brand, a.ba-tabs__option { transition: color var(--duration-hover) var(
 .ba-select[aria-expanded="true"] { background: var(--sky-200); }
 a.ba-tabs__option:hover { color: var(--ink); }
 .ba-stat__body strong { overflow: hidden; font-size: clamp(24px, 2.1vw, 32px); text-overflow: ellipsis; white-space: nowrap; }
+
+/* 页面加载线：浅色细线在顶部滑动，内容全部加载完才一口气走完并带着动画收起 */
+.load-line {
+  position: fixed;
+  z-index: 9999;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(0, -3px, 0);
+  transition: opacity 280ms var(--ease), transform 340ms var(--ease);
+}
+.load-line__run, .load-line__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 0 3px 3px 0;
+  background: var(--sky-300);
+  box-shadow: 0 0 10px var(--sky-200);
+}
+.load-line__run { width: 38%; animation: load-line-run 1.6s cubic-bezier(.45, .05, .25, 1) infinite; transition: opacity 200ms var(--ease); }
+.load-line__fill { transform: translate3d(-101%, 0, 0); }
+html.is-loading .load-line { opacity: 1; transform: none; }
+html.is-finishing .load-line__run { opacity: 0; }
+html.is-finishing .load-line__fill { transform: none; transition: transform 520ms cubic-bezier(.2, .86, .24, 1); }
+html.is-line-leaving .load-line { opacity: 0; transform: translate3d(0, -3px, 0); }
+/* 没有脚本接手时的保底：很久之后自己收起来（脚本一旦接手就不再需要） */
+html.is-loading:not(.has-loaded) .load-line { animation: load-line-giveup 1ms linear 15s forwards; }
+@keyframes load-line-run { from { transform: translate3d(-105%, 0, 0); } to { transform: translate3d(265%, 0, 0); } }
+@keyframes load-line-giveup { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .load-line { display: none; } }
+html[data-motion="reduce"] .load-line, html[data-performance="low"] .load-line { display: none; }

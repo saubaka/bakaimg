@@ -10,9 +10,9 @@
     {# 一、首屏：左边说明，右边是一个窗口，里面斜放的照片墙自己缓缓滚动 #}
     <section class="home-hero">
       <div class="home-hero__copy" data-reveal>
-        <div class="home-hero__badges"><span class="ba-badge">本地优先</span><span class="ba-badge ba-badge--ok">v{{ app_version }}</span></div>
-        <h1>保存图片，<br>慢慢整理。</h1>
-        <p>上传图片、整理相册，自己决定谁能看到；遇到喜欢的公开图片，还可以收藏起来。</p>
+        <div class="home-hero__badges"><span class="ba-badge">公开图床</span></div>
+        <h1>图片放这儿，<br>分享更省心。</h1>
+        <p>上传图片就能拿到链接，还能整理成相册；公开的图片会出现在发现页，大家都可以浏览和收藏。</p>
         <div class="hero-actions">
           {% if signed_in %}
             <a class="ba-button" href="{{ url_for('public.dashboard') }}">进入仪表盘</a>
@@ -22,9 +22,9 @@
           {% endif %}
         </div>
         <ul class="home-hero__facts" aria-label="特点">
-          <li>{{ icon('check') }}<span>JPEG、PNG、WebP、GIF</span></li>
-          <li>{{ icon('check') }}<span>页面不加载第三方脚本与字体</span></li>
-          <li>{{ icon('check') }}<span>自带备份与恢复</span></li>
+          <li>{{ icon('check') }}<span>支持 JPEG、PNG、WebP、GIF</span></li>
+          <li>{{ icon('check') }}<span>每张图都有原图链接和分享页</span></li>
+          <li>{{ icon('check') }}<span>公开、仅链接可见、仅自己可见，随时可改</span></li>
         </ul>
       </div>
       <div class="photo-window" data-reveal role="img" aria-label="最近分享的图片在窗口里缓缓滚动">

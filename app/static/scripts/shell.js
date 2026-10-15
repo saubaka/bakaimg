@@ -158,12 +158,14 @@
       if (text) ui.notifications?.notify(text, toast.dataset.toastCategory || 'info');
     });
     window.dispatchEvent(new Event('baka:page-ready'));
+    ui.loadLine?.finish({ scope: main });
   };
 
   const go = async (url, { push = true, trigger = null, y = 0 } = {}) => {
     controller?.abort();
     controller = new AbortController();
     const mine = ++version;
+    ui.loadLine?.start();
     if (trigger) highlight(trigger);
     if (document.body.classList.contains('drawer-open')) document.querySelector('[data-close-mobile-drawer]')?.click();
     setBarHidden(false);

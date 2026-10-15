@@ -6,7 +6,7 @@ from datetime import timedelta
 
 
 class BaseConfig:
-    APP_VERSION = "0.16.0"
+    APP_VERSION = "0.16.1"
     SYSTEM_NAME = "baka图床"
     SYSTEM_NAME_EN = "bakaimg"
     SITE_NAME = "baka图床"

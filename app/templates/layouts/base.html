@@ -33,6 +33,7 @@
     <title>{% block title %}{{ site_name }}{% endblock %}</title>
   </head>
   <body class="ba-root {% block body_class %}{% endblock %}">
+    <div class="load-line" aria-hidden="true"><span class="load-line__run"></span><span class="load-line__fill"></span></div>
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     {% block body %}{% endblock %}
     <div class="toast-region" data-toast-region aria-label="通知">
@@ -49,6 +50,7 @@
       <label class="ba-field" data-app-dialog-field hidden><span data-app-dialog-input-label>请输入内容</span><input class="ba-input" type="text" data-app-dialog-input autocomplete="off"></label>
       <div class="ba-dialog__actions"><button class="ba-button ba-button--soft" type="button" data-app-dialog-cancel>取消</button><button class="ba-button" type="button" data-app-dialog-confirm>确认</button></div>
     </dialog>
+    <script src="{{ url_for('static', filename='scripts/loadline.js', v=app_version) }}" defer></script>
     <script src="{{ url_for('static', filename='scripts/motion-controller.js', v=app_version) }}" defer></script>
     <script src="{{ url_for('static', filename='scripts/controls.js', v=app_version) }}" defer></script>
     <script src="{{ url_for('static', filename='scripts/navigation.js', v=app_version) }}" defer></script>
