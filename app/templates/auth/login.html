@@ -1,0 +1,23 @@
+{% extends "layouts/site.html" %}
+{% from "components/macros.html" import field %}
+{% block title %}{{ site_name }}｜登录{% endblock %}
+{% block content %}
+  <div class="page-shell auth-shell auth-shell--local">
+    <section class="ba-panel auth-card auth-card--local" data-reveal>
+      <header class="auth-card__heading">
+        <h1 class="ba-title">登录</h1>
+        <p class="ba-lead">继续整理你的图片。</p>
+      </header>
+      <form class="soft-form auth-form" data-auth-form method="post" novalidate action="{{ url_for('auth.login', next=next_target) }}">
+        {{ form.hidden_tag() }}
+        {{ field(form.identity, autocomplete='username', placeholder='用户名或邮箱', autofocus=true) }}
+        {{ field(form.password, autocomplete='current-password', placeholder='输入密码', password=true) }}
+        <label class="check-field">{{ form.remember() }}<span>{{ form.remember.label.text }}</span></label>
+        {% if form.csrf_token is defined %}{% for error in form.csrf_token.errors %}<small class="ba-field__error" role="alert">{{ error }}</small>{% endfor %}{% endif %}
+        <button class="ba-button u-full" type="submit" data-busy-label="正在登录…">登录</button>
+      </form>
+      {% if gateway_enabled %}<div class="auth-secondary"><a href="{{ url_for('gateway.login', next=next_target) }}">使用其他方式登录</a></div>{% endif %}
+      <p class="form-footnote ba-lead">还没有账号？<a href="{{ register_url }}">创建一个</a></p>
+    </section>
+  </div>
+{% endblock %}

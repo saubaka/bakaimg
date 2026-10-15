@@ -1,33 +1,38 @@
 {% extends "layouts/site.html" %}
-{% block title %}{{ '编辑 ' ~ album.title if album else '新建相册' }} · {{ site_name }}{% endblock %}
+{% from 'components/media.html' import picture, visibility %}
+{% block title %}{{ site_name }}｜{{ '编辑 ' ~ album.title if album else '新建相册' }}{% endblock %}
 {% block content %}
   <div class="page-shell album-editor">
-    <section class="card library-hero" data-reveal>
-      <div><span class="eyebrow">相册</span><h1>{{ '编辑相册' if album else '新建相册' }}</h1><p>选择图片、写下介绍，再决定谁可以看到。</p></div>
-      <a class="button button--soft" href="{{ url_for('images.albums') }}">返回相册</a>
-    </section>
+    <header class="page-head" data-reveal>
+      <div><h1 class="ba-title">{{ '编辑相册' if album else '新建相册' }}</h1><p class="page-head__meta">选择图片、写下介绍，再决定谁可以看到</p></div>
+      <a class="ba-button ba-button--soft" href="{{ url_for('images.albums') }}">返回相册</a>
+    </header>
     <div class="album-editor-grid">
-      <section class="card admin-panel" data-reveal>
+      <section class="ba-panel" data-reveal>
         <form class="soft-form" method="post">
           {{ form.hidden_tag() }}
-          <label>{{ form.title.label }}{{ form.title(placeholder="例如：雨后的蓝色散步") }}</label>
-          <label>{{ form.description.label }}{{ form.description(rows=5) }}</label>
-          <label>{{ form.visibility.label }}{{ form.visibility() }}</label>
-          <label>{{ form.image_ids.label }}{{ form.image_ids(size=12) }}<small>可按住 Ctrl 选择多张，保存后还能调整顺序。</small></label>
-          {% for field in form if field.errors %}{% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}{% endfor %}
-          {{ form.submit(class="button button--primary button--full") }}
+          <label class="ba-field">{{ form.title.label }}{{ form.title(placeholder="相册名称") }}</label>
+          <label class="ba-field">{{ form.description.label }}{{ form.description(rows=5) }}</label>
+          {{ visibility(form.visibility) }}
+          <fieldset class="album-picker"><legend>选择图片</legend><small>勾选要放入相册的图片，保存后可以调整顺序。</small><div class="album-picker__grid">
+            {% for image in available_images %}
+              <label class="album-choice" for="album-image-{{ image.id }}">{{ picture(image) }}<span class="album-choice__row"><input type="checkbox" id="album-image-{{ image.id }}" name="image_ids" value="{{ image.id }}" {% if image.id in (form.image_ids.data or []) %}checked{% endif %}><strong>{{ image.title or image.original_name }}</strong></span><small>{{ {'private': '仅自己', 'unlisted': '通过链接', 'public': '公开'}[image.visibility] }}</small></label>
+            {% else %}<p>图库还没有可以放入相册的图片。<a href="{{ url_for('images.upload') }}">上传图片</a></p>{% endfor %}
+          </div></fieldset>
+          {% for field in form if field.errors %}{% for error in field.errors %}<small class="ba-field__error">{{ error }}</small>{% endfor %}{% endfor %}
+          {{ form.submit(class="ba-button u-full") }}
         </form>
       </section>
-      <aside class="card admin-panel album-order" data-reveal>
-        <div class="section-heading"><div><span class="eyebrow">图片顺序</span><h2>当前顺序</h2></div></div>
+      <aside class="ba-panel album-order" data-reveal>
+        <div class="section-heading"><h2 class="ba-heading">当前顺序</h2></div>
         {% if album and album.items %}
           {% for item in album.items %}
-            <article><span>{{ loop.index }}</span><img src="{{ url_for('images.media', public_id=item.image.public_id, variant='thumbnail') }}" alt=""><div><strong>{{ item.image.title or item.image.original_name }}</strong><small>{{ {'private': '仅自己可见', 'unlisted': '通过链接分享', 'public': '公开展示'}[item.image.visibility] }}</small></div><div class="stack-actions"><form method="post" action="{{ url_for('images.move_album_item', public_id=album.public_id, item_id=item.id, direction='up') }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small" aria-label="上移">↑</button></form><form method="post" action="{{ url_for('images.move_album_item', public_id=album.public_id, item_id=item.id, direction='down') }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small" aria-label="下移">↓</button></form></div></article>
+            <article><span class="ba-badge">{{ loop.index }}</span><img src="{{ url_for('images.media', public_id=item.image.public_id, variant='thumbnail') }}" alt=""><div><strong>{{ item.image.title or item.image.original_name }}</strong><small>{{ {'private': '仅自己可见', 'unlisted': '通过链接分享', 'public': '公开展示'}[item.image.visibility] }}</small></div><div class="stack-actions"><form method="post" action="{{ url_for('images.move_album_item', public_id=album.public_id, item_id=item.id, direction='up') }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--soft ba-button--icon" aria-label="上移">↑</button></form><form method="post" action="{{ url_for('images.move_album_item', public_id=album.public_id, item_id=item.id, direction='down') }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--soft ba-button--icon" aria-label="下移">↓</button></form></div></article>
           {% endfor %}
         {% else %}<p>保存相册后，这里会显示可以调整的图片顺序。</p>{% endif %}
         {% if album %}
-          <label class="copy-field"><span>相册分享链接</span><span><input value="{{ url_for('public.album_detail', public_id=album.public_id, _external=true) }}" readonly data-copy-source><button class="button button--soft button--small" type="button" data-copy-button>复制</button></span></label>
-          <form class="danger-form" method="post" data-confirm="删除相册不会删除图片，确定继续吗？" action="{{ url_for('images.delete_album', public_id=album.public_id) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--full">删除相册</button></form>
+          <label class="copy-field ba-field"><span>相册分享链接</span><span><input class="ba-input" value="{{ url_for('public.album_detail', public_id=album.public_id, _external=true) }}" readonly data-copy-source><button class="ba-button ba-button--soft u-compact" type="button" data-copy-button>复制</button></span></label>
+          <form class="danger-form" method="post" data-confirm="删除相册不会删除图片，确定继续吗？" action="{{ url_for('images.delete_album', public_id=album.public_id) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--danger u-full">删除相册</button></form>
         {% endif %}
       </aside>
     </div>

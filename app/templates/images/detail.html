@@ -1,21 +1,22 @@
 {% extends "layouts/site.html" %}
-{% block title %}{{ image.title or image.original_name }} · {{ site_name }}{% endblock %}
+{% from 'components/media.html' import picture, visibility %}
+{% block title %}{{ site_name }}｜{{ image.title or image.original_name }}{% endblock %}
 {% block content %}
   <div class="page-shell image-detail">
-    <section class="card image-stage" data-reveal><img src="{{ url_for('images.media', public_id=image.public_id, variant='original') }}" alt="{{ image.alt_text or image.title }}" width="{{ image.width }}" height="{{ image.height }}"></section>
+    <section class="image-stage" data-reveal>{{ picture(image, 'original', eager=true) }}</section>
     <aside class="image-detail-sidebar">
-      <section class="card image-meta" data-reveal>
-        <span class="eyebrow">图片信息</span><h1>{{ image.title or image.original_name }}</h1>
-        <dl><div><dt>类型</dt><dd>{{ image.image_format }}</dd></div><div><dt>尺寸</dt><dd>{{ image.width }} × {{ image.height }}</dd></div><div><dt>大小</dt><dd>{{ format_bytes(image.byte_size) }}</dd></div><div><dt>状态</dt><dd>{{ {'active': '正在使用', 'quarantined': '已隐藏', 'trashed': '回收站'}[image.status] }}</dd></div></dl>
+      <section class="image-meta" data-reveal>
+        <h1 class="ba-title">{{ image.title or image.original_name }}</h1>
+        <dl class="facts"><div><dt>类型</dt><dd>{{ image.image_format }}</dd></div><div><dt>尺寸</dt><dd>{{ image.width }} × {{ image.height }}</dd></div><div><dt>大小</dt><dd>{{ format_bytes(image.byte_size) }}</dd></div><div><dt>状态</dt><dd>{{ {'active': '正在使用', 'quarantined': '已隐藏', 'trashed': '回收站'}[image.status] }}</dd></div></dl>
         {% if image.status == 'active' %}
-          <label class="copy-field"><span>分享页面</span><span><input value="{{ url_for('public.share_image', public_id=image.public_id, _external=true) }}" readonly data-copy-source><button class="button button--soft button--small" type="button" data-copy-button>复制</button></span></label>
-          <label class="copy-field"><span>原图链接</span><span><input value="{{ url_for('images.media', public_id=image.public_id, variant='original', _external=true) }}" readonly data-copy-source><button class="button button--soft button--small" type="button" data-copy-button>复制</button></span></label>
-          <a class="button button--soft button--full" href="{{ url_for('public.share_image', public_id=image.public_id) }}">看看分享页面</a>
+          <label class="copy-field ba-field"><span>分享页面</span><span><input class="ba-input" value="{{ url_for('public.share_image', public_id=image.public_id, _external=true) }}" readonly data-copy-source><button class="ba-button ba-button--soft u-compact" type="button" data-copy-button>复制</button></span></label>
+          <label class="copy-field ba-field"><span>原图链接</span><span><input class="ba-input" value="{{ url_for('images.media', public_id=image.public_id, variant='original', _external=true) }}" readonly data-copy-source><button class="ba-button ba-button--soft u-compact" type="button" data-copy-button>复制</button></span></label>
+          <a class="ba-button ba-button--soft u-full" href="{{ url_for('public.share_image', public_id=image.public_id) }}">看看分享页面</a>
         {% endif %}
       </section>
-      <section class="card image-meta" data-reveal>
-        <form class="soft-form" method="post">{{ form.hidden_tag() }}<label>{{ form.title.label }}{{ form.title() }}</label><label>{{ form.alt_text.label }}{{ form.alt_text(rows=3) }}</label><label>{{ form.visibility.label }}{{ form.visibility() }}</label>{{ form.submit(class="button button--primary button--full") }}</form>
-        {% if image.status in ['active', 'quarantined'] %}<form class="danger-form" method="post" action="{{ url_for('images.trash', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--full" type="submit">移入回收站</button></form>{% endif %}
+      <section class="image-meta image-meta--form" data-reveal>
+        <form class="soft-form" method="post">{{ form.hidden_tag() }}<label class="ba-field">{{ form.title.label }}{{ form.title() }}</label><label class="ba-field">{{ form.alt_text.label }}{{ form.alt_text(rows=3) }}</label>{{ visibility(form.visibility) }}{% for field in form if field.errors and field.name != 'visibility' %}{% for error in field.errors %}<small class="ba-field__error">{{ error }}</small>{% endfor %}{% endfor %}{{ form.submit(class="ba-button u-full") }}</form>
+        {% if image.status in ['active', 'quarantined'] %}<form class="danger-form" method="post" action="{{ url_for('images.trash', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--danger u-full" type="submit">移入回收站</button></form>{% endif %}
       </section>
     </aside>
   </div>

@@ -1,14 +1,24 @@
 {% extends "layouts/admin.html" %}
-{% block title %}相册治理 · {{ system_name }}{% endblock %}
+{% from "components/macros.html" import empty_art, icon %}
+{% block title %}{{ system_name }}｜后台｜相册治理{% endblock %}
 {% block admin_title %}相册治理{% endblock %}
 {% block admin_content %}
-  <section class="card admin-panel">
-    <div class="section-heading"><div><span class="eyebrow">GLOBAL ALBUMS</span><h2>全站相册</h2></div><a class="button button--soft" href="{{ url_for('public.discover') }}">查看发现页</a></div>
-    <form class="search-form search-form--filters" method="get"><input name="q" value="{{ query }}" placeholder="搜索名称、介绍或用户名"><select name="status"><option value="all" {{ 'selected' if status == 'all' }}>全部状态</option><option value="active" {{ 'selected' if status == 'active' }}>使用中</option><option value="hidden" {{ 'selected' if status == 'hidden' }}>已隐藏</option></select><button class="button button--soft">筛选</button></form>
-    <div class="admin-image-list">
-      {% for album in albums %}
-        <article>{% if album.cover_image %}<img src="{{ url_for('images.media', public_id=album.cover_image.public_id, variant='thumbnail') }}" alt="" width="96" height="72" loading="lazy">{% else %}<span class="admin-album-placeholder">▦</span>{% endif %}<div><strong>{{ album.title }}</strong><small>@{{ album.owner.username }} · {{ album.items|length }} 张 · {{ album.view_count }} 次浏览</small><div class="chip-row"><span class="chip">{{ album.status }}</span><span class="chip">{{ album.visibility }}</span>{% if album.is_featured %}<span class="chip">featured</span>{% endif %}</div></div><div class="image-actions">{% if album.status == 'active' %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='hide', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">隐藏</button></form>{% else %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='restore', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small">恢复</button></form>{% endif %}{% if album.is_featured %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='unfeature', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small">取消精选</button></form>{% elif album.status == 'active' and album.visibility == 'public' %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='feature', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--primary button--small">设为精选</button></form>{% endif %}<form method="post" data-confirm="删除相册不会删除图片，确定继续吗？" action="{{ url_for('admin.album_action', album_id=album.id, action='delete', status=status) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">删除</button></form></div></article>
-      {% else %}<p>当前筛选条件下没有相册。</p>{% endfor %}
-    </div>
+  <section class="ba-panel">
+    <div class="section-heading"><h2 class="ba-heading">全站相册</h2><a class="ba-button ba-button--soft" href="{{ url_for('public.discover') }}">查看发现页</a></div>
+    <form class="search-form search-form--filters" method="get"><input class="ba-input" aria-label="搜索" name="q" value="{{ query }}" placeholder="搜索名称、介绍或用户名"><span class="u-select"><select class="ba-input" aria-label="状态" name="status"><option value="all" {{ 'selected' if status == 'all' }}>全部状态</option><option value="active" {{ 'selected' if status == 'active' }}>使用中</option><option value="hidden" {{ 'selected' if status == 'hidden' }}>已隐藏</option></select></span><button class="ba-button ba-button--soft">筛选</button></form>
+    {% if albums %}
+      <table class="ba-table table-cards">
+        <thead><tr><th>相册</th><th>状态</th><th><span class="sr-only">操作</span></th></tr></thead>
+        <tbody>
+          {% for album in albums %}
+            <tr>
+              <td data-label="相册"><div class="ba-table__who">{% if album.cover_image %}<img class="admin-thumb" src="{{ url_for('images.media', public_id=album.cover_image.public_id, variant='thumbnail') }}" alt="" width="96" height="72" loading="lazy">{% else %}<span class="admin-thumb admin-album-placeholder">{{ icon('album') }}</span>{% endif %}<div>{{ album.title }}<small>@{{ album.owner.username }} · {{ album.items|length }} 张 · {{ album.view_count }} 次浏览</small></div></div></td>
+              <td data-label="状态"><div class="chip-row"><span class="ba-badge{{ ' ba-badge--alert' if album.status != 'active' }}">{{ {'active': '使用中', 'hidden': '已隐藏'}.get(album.status, album.status) }}</span><span class="ba-badge">{{ {'private':'仅自己','unlisted':'通过链接','public':'公开'}.get(album.visibility, album.visibility) }}</span>{% if album.is_featured %}<span class="ba-badge ba-badge--new">精选</span>{% endif %}</div></td>
+              <td class="table-actions"><div class="image-actions">{% if album.status == 'active' %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='hide', status=status) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--danger u-compact">隐藏</button></form>{% else %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='restore', status=status) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--soft u-compact">恢复</button></form>{% endif %}{% if album.is_featured %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='unfeature', status=status) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--soft u-compact">取消精选</button></form>{% elif album.status == 'active' and album.visibility == 'public' %}<form method="post" action="{{ url_for('admin.album_action', album_id=album.id, action='feature', status=status) }}">{{ empty_form.hidden_tag() }}<button class="ba-button u-compact">设为精选</button></form>{% endif %}<form method="post" data-confirm="删除相册不会删除图片，确定继续吗？" action="{{ url_for('admin.album_action', album_id=album.id, action='delete', status=status) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--danger u-compact">删除</button></form></div></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}<div class="ba-empty">{{ empty_art() }}<p>当前筛选条件下没有相册。</p></div>{% endif %}
   </section>
 {% endblock %}

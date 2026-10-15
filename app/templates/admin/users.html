@@ -1,19 +1,27 @@
 {% extends "layouts/admin.html" %}
-{% block title %}用户 · {{ system_name }}{% endblock %}
+{% from "components/macros.html" import empty_art %}
+{% block title %}{{ system_name }}｜后台｜用户{% endblock %}
 {% block admin_title %}用户与账号{% endblock %}
 {% block admin_content %}
-  <section class="card admin-panel">
-    <div class="section-heading"><div><span class="eyebrow">ACCOUNTS</span><h2>全部用户</h2></div></div>
-    <form class="search-form" method="get"><input name="q" value="{{ query }}" placeholder="搜索用户名、邮箱或显示名"><button class="button button--soft" type="submit">搜索</button></form>
-    <div class="data-list">
-      {% for user in users %}
-        <article>
-          <div class="soft-avatar soft-avatar--small">{{ user.display_name[:1] }}</div>
-          <div><strong>{{ user.display_name }}</strong><small>@{{ user.username }} · {{ user.email }}</small><div class="chip-row">{% for role in user.roles %}<span class="chip">{{ role.name }}</span>{% endfor %}</div></div>
-          <span class="status-tag {{ 'status-tag--muted' if user.status != 'active' }}">{{ '有效' if user.status == 'active' else '停用' }}</span>
-          {% if current_user.has_permission('users.manage') %}<a class="button button--soft button--small" href="{{ url_for('admin.edit_user', user_id=user.id) }}">管理</a>{% endif %}
-        </article>
-      {% else %}<p>没有找到账号。</p>{% endfor %}
-    </div>
+  <section class="ba-panel">
+    <div class="section-heading"><h2 class="ba-heading">全部用户</h2></div>
+    <form class="search-form" method="get"><input class="ba-input" aria-label="搜索" name="q" value="{{ query }}" placeholder="搜索用户名、邮箱或显示名"><button class="ba-button ba-button--soft" type="submit">搜索</button></form>
+    {% if users %}
+      <table class="ba-table table-cards">
+        <thead><tr><th>账号</th><th>角色</th><th>状态</th><th><span class="sr-only">操作</span></th></tr></thead>
+        <tbody>
+          {% for user in users %}
+            <tr>
+              <td data-label="账号"><div class="ba-table__who"><span class="ba-avatar">{{ user.display_name[:1] }}</span><div>{{ user.display_name }}<small>@{{ user.username }} · {{ user.email }}</small></div></div></td>
+              <td data-label="角色"><div class="chip-row">{% for role in user.roles %}<span class="ba-badge">{{ role.name }}</span>{% else %}<span class="ba-badge">未分配</span>{% endfor %}</div></td>
+              <td data-label="状态"><span class="ba-badge {{ 'ba-badge--ok' if user.status == 'active' else 'ba-badge--alert' }}">{{ '有效' if user.status == 'active' else '停用' }}</span></td>
+              <td class="table-actions">{% if current_user.has_permission('users.manage') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('admin.edit_user', user_id=user.id) }}">管理</a>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <div class="ba-empty">{{ empty_art() }}<p>没有找到账号。</p></div>
+    {% endif %}
   </section>
 {% endblock %}

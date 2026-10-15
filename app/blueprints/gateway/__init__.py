@@ -1,4 +1,4 @@
-"""Cloudgate relying-party routes."""
+"""Optional external identity routes."""
 
 from flask import Blueprint
 

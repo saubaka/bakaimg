@@ -1,4 +1,4 @@
-"""OpenID Connect client and encrypted Cloudgate identity sessions."""
+"""Optional external identity client and encrypted sessions."""
 
 from __future__ import annotations
 
@@ -171,7 +171,7 @@ def decrypt_gateway_client_secret(value: str) -> str:
     try:
         return _token_cipher().decrypt(value.encode()).decode()
     except (InvalidToken, UnicodeDecodeError) as error:
-        raise GatewayError("保存的Client Secret无法解密，请重新创建网关连接。") from error
+        raise GatewayError("保存的连接密钥无法解密，请重新创建登录方式。") from error
 
 
 def get_gateway_runtime_configuration() -> GatewayRuntimeConfiguration:
@@ -200,7 +200,7 @@ def _decrypt_token(value: str) -> str:
     try:
         return _token_cipher().decrypt(value.encode()).decode()
     except (InvalidToken, UnicodeDecodeError) as error:
-        raise GatewayError("本地网关会话无法解密，请重新登录。") from error
+        raise GatewayError("本地外部登录会话无法解密，请重新登录。") from error
 
 
 def _aware(value: datetime) -> datetime:
@@ -286,7 +286,7 @@ def begin_authorization(
         if not gateway_connection_is_configured():
             raise GatewayError("请先在后台创建登录连接。")
     elif not gateway_is_enabled():
-        raise GatewayError("统一登录尚未启用。")
+        raise GatewayError("外部登录尚未启用。")
     if intent not in VALID_INTENTS:
         raise GatewayError("无法识别登录用途。")
     if screen_hint not in {"login", "signup"}:

@@ -6,13 +6,13 @@ from datetime import timedelta
 
 
 class BaseConfig:
-    APP_VERSION = "0.12.0"
+    APP_VERSION = "0.16.0"
     SYSTEM_NAME = "baka图床"
     SYSTEM_NAME_EN = "bakaimg"
     SITE_NAME = "baka图床"
     # 健康检查service标识为对外固定契约值，不随品牌名称变化。
     HEALTH_SERVICE_NAME = "Cloudnest"
-    SITE_TAGLINE = "把喜欢的画面认真收藏起来"
+    SITE_TAGLINE = "把照片放好，想看的时候就找得到"
     SITE_URL = "http://127.0.0.1:5200"
     ENV_NAME = "base"
 

@@ -1,19 +1,20 @@
 {% extends "layouts/site.html" %}
-{% block title %}上传图片 · {{ site_name }}{% endblock %}
+{% from "components/macros.html" import icon %}
+{% block title %}{{ site_name }}｜上传图片{% endblock %}
 {% block content %}
   <div class="page-shell upload-page">
-    <header class="upload-page__heading" data-reveal>
-      <span class="eyebrow">上传图片</span>
-      <h1>选择想保存的图片</h1>
+    <header class="page-head upload-page__heading" data-reveal>
+      <div><h1 class="ba-title">上传图片</h1><p class="page-head__meta">选择或拖入想保存的图片</p></div>
     </header>
 
     <form class="upload-form upload-form--stage" method="post" enctype="multipart/form-data" data-upload-form>
       {{ form.hidden_tag() }}
+      <noscript><p>选择图片后确认上传，默认仅自己可见。</p><button class="ba-button" type="submit">确认上传</button></noscript>
       <div class="upload-stage" data-upload-stage data-reveal>
         <label class="upload-stage__picker" aria-label="选择或拖入图片">
           {{ form.images(accept="image/jpeg,image/png,image/webp,image/gif", multiple=true, data_file_input=true) }}
           <span class="upload-stage__empty" data-upload-empty>
-            <i aria-hidden="true">＋</i>
+            <i aria-hidden="true">{{ icon('plus') }}</i>
             <strong>上传图片</strong>
           </span>
           <span class="upload-stage__preview" data-upload-preview hidden>
@@ -26,9 +27,9 @@
         <div class="upload-stage__actions" data-upload-actions hidden>
           {% set selected_visibility = form.visibility.data or 'private' %}
           <div class="upload-visibility" data-upload-visibility>
-            {{ form.visibility(class="upload-visibility__native sr-only", data_upload_visibility_native=true, tabindex="-1", aria_hidden="true") }}
-            <button class="upload-visibility__trigger" type="button" aria-haspopup="menu" aria-expanded="false" data-upload-visibility-trigger>
-              <span data-upload-visibility-label>{{ {'private': '仅自己可见', 'unlisted': '通过链接分享', 'public': '公开展示'}[selected_visibility] }}</span><i aria-hidden="true"></i>
+            {{ form.visibility(class="upload-visibility__native sr-only", data_upload_visibility_native=true, tabindex="-1", aria_hidden="true", aria_label="谁可以看") }}
+            <button class="upload-visibility__trigger ba-select" type="button" aria-haspopup="menu" aria-expanded="false" data-upload-visibility-trigger>
+              <span data-upload-visibility-label>{{ {'private': '仅自己可见', 'unlisted': '通过链接分享', 'public': '公开展示'}[selected_visibility] }}</span>
             </button>
             <div class="upload-visibility__menu" role="menu" data-upload-visibility-menu hidden>
               {% for value, label in form.visibility.choices %}
@@ -36,7 +37,7 @@
               {% endfor %}
             </div>
           </div>
-          {{ form.submit(class="button button--primary upload-stage__confirm", data_upload_submit=true) }}
+          {{ form.submit(class="ba-button upload-stage__confirm", data_upload_submit=true) }}
         </div>
 
         <div class="upload-progress" data-upload-progress hidden aria-live="polite">
@@ -45,7 +46,7 @@
           <small data-upload-detail>请稍候。</small>
         </div>
       </div>
-      {% for field in form if field.errors %}{% for error in field.errors %}<small class="form-error upload-form__error">{{ error }}</small>{% endfor %}{% endfor %}
+      {% for field in form if field.errors %}{% for error in field.errors %}<small class="ba-field__error upload-form__error">{{ error }}</small>{% endfor %}{% endfor %}
     </form>
   </div>
 {% endblock %}

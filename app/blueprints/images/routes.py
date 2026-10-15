@@ -388,7 +388,8 @@ def create_album():
     )
 
 
-@images_bp.route("/albums/<string:public_id>/", methods=["GET", "POST"])
+@images_bp.route("/albums/<string:public_id>/", methods=["POST"])
+@images_bp.route("/albums/<string:public_id>/edit/", methods=["GET", "POST"])
 @permission_required("images.manage_own")
 def edit_album(public_id: str):
     album = _owned_album(public_id)

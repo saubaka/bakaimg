@@ -1,14 +1,24 @@
 {% extends "layouts/admin.html" %}
-{% block title %}收藏治理 · {{ system_name }}{% endblock %}
+{% from "components/macros.html" import empty_art %}
+{% block title %}{{ system_name }}｜后台｜收藏治理{% endblock %}
 {% block admin_title %}收藏治理{% endblock %}
 {% block admin_content %}
-  <section class="card admin-panel">
-    <div class="section-heading"><div><span class="eyebrow">FAVORITE RELATIONS</span><h2>最近收藏关系</h2></div><span class="phase-badge">最多显示200条</span></div>
-    <form class="search-form" method="get"><input name="q" value="{{ query }}" placeholder="搜索用户名、图片标题或文件名"><button class="button button--soft">搜索</button></form>
-    <div class="admin-image-list">
-      {% for favorite in favorites %}
-        <article><img src="{{ url_for('images.media', public_id=favorite.image.public_id, variant='thumbnail') }}" alt="" width="96" height="72" loading="lazy"><div><strong>{{ favorite.image.title or favorite.image.original_name }}</strong><small>@{{ favorite.user.username }} 收藏 · 图片作者 @{{ favorite.image.owner.username }}</small><div class="chip-row"><span class="chip">{{ favorite.image.visibility }}</span><span class="chip">{{ favorite.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div></div><form method="post" data-confirm="只清理收藏关系，不删除图片。确定继续吗？" action="{{ url_for('admin.delete_favorite', favorite_id=favorite.id) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">清理关系</button></form></article>
-      {% else %}<p>当前没有匹配的收藏关系。</p>{% endfor %}
-    </div>
+  <section class="ba-panel">
+    <div class="section-heading"><h2 class="ba-heading">最近收藏关系</h2><span class="ba-badge">最多显示200条</span></div>
+    <form class="search-form" method="get"><input class="ba-input" aria-label="搜索" name="q" value="{{ query }}" placeholder="搜索用户名、图片标题或文件名"><button class="ba-button ba-button--soft">搜索</button></form>
+    {% if favorites %}
+      <table class="ba-table table-cards">
+        <thead><tr><th>图片</th><th>记录</th><th><span class="sr-only">操作</span></th></tr></thead>
+        <tbody>
+          {% for favorite in favorites %}
+            <tr>
+              <td data-label="图片"><div class="ba-table__who"><img class="admin-thumb" src="{{ url_for('images.media', public_id=favorite.image.public_id, variant='thumbnail') }}" alt="" width="96" height="72" loading="lazy"><div>{{ favorite.image.title or favorite.image.original_name }}<small>@{{ favorite.user.username }} 收藏 · 图片作者 @{{ favorite.image.owner.username }}</small></div></div></td>
+              <td data-label="记录"><div class="chip-row"><span class="ba-badge">{{ {'private':'仅自己','unlisted':'通过链接','public':'公开'}.get(favorite.image.visibility, favorite.image.visibility) }}</span><span class="ba-badge">{{ favorite.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div></td>
+              <td class="table-actions"><form method="post" data-confirm="只清理收藏关系，不删除图片。确定继续吗？" action="{{ url_for('admin.delete_favorite', favorite_id=favorite.id) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--danger u-compact">清理关系</button></form></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}<div class="ba-empty">{{ empty_art() }}<p>当前没有匹配的收藏关系。</p></div>{% endif %}
   </section>
 {% endblock %}

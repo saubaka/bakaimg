@@ -1,20 +1,22 @@
 {% extends "layouts/site.html" %}
-{% block title %}我的收藏 · {{ site_name }}{% endblock %}
+{% from 'components/media.html' import picture %}
+{% from 'components/macros.html' import empty_art %}
+{% block title %}{{ site_name }}｜我的收藏{% endblock %}
 {% block content %}
   <div class="page-shell favorites-page">
-    <section class="card library-hero favorites-hero" data-reveal>
-      <div><span class="eyebrow">我的收藏</span><h1>收藏的画面</h1><p>喜欢的图片都在这里。</p></div>
-      <a class="button button--primary favorites-hero__discover" href="{{ url_for('public.discover') }}">继续发现</a>
-    </section>
-    <section class="discovery-image-grid discovery-image-grid--masonry">
+    <header class="page-head" data-reveal>
+      <div><h1 class="ba-title">收藏</h1><p class="page-head__meta" data-favorites-count>{{ favorites|length }} 张喜欢的图片</p></div>
+      <a class="ba-button ba-button--soft favorites-hero__discover" href="{{ url_for('public.discover') }}">继续发现</a>
+    </header>
+    <section class="tile-grid tile-grid--masonry">
       {% for favorite in favorites %}
-        <article class="card discovery-tile favorite-tile" data-reveal>
-          <a href="{{ url_for('public.share_image', public_id=favorite.image.public_id) }}"><img src="{{ url_for('images.media', public_id=favorite.image.public_id, variant='thumbnail') }}" alt="{{ favorite.image.alt_text or favorite.image.title }}" loading="lazy"></a>
-          <span><strong>{{ favorite.image.title or favorite.image.original_name }}</strong><small>@{{ favorite.image.owner.username }} · 收藏于 {{ favorite.created_at.strftime('%Y-%m-%d') }}</small><form method="post" action="{{ url_for('public.toggle_favorite', public_id=favorite.image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small">移出收藏</button></form></span>
+        <article class="tile favorite-tile" data-reveal>
+          {{ picture(favorite.image, href=url_for('public.share_image', public_id=favorite.image.public_id)) }}
+          <div class="tile__body"><strong>{{ favorite.image.title or favorite.image.original_name }}</strong><span class="tile__meta">@{{ favorite.image.owner.username }} · 收藏于 {{ favorite.created_at.strftime('%Y-%m-%d') }}</span></div>
+          <form class="tile__actions" method="post" data-favorite-form data-favorite-state="remove" action="{{ url_for('public.toggle_favorite', public_id=favorite.image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--soft u-compact">移出收藏</button><small class="ba-field__error" role="status" hidden data-favorite-error></small></form>
         </article>
-      {% else %}
-        <div class="card empty-cloud"><span>♡</span><h2>收藏夹还是空的</h2><p>在公开图片的分享页点一下收藏，它就会轻轻落在这里。</p><a class="button button--primary" href="{{ url_for('public.discover') }}">去发现画面</a></div>
       {% endfor %}
+      <div class="ba-empty" data-favorites-empty {% if favorites %}hidden{% endif %}>{{ empty_art() }}<p>收藏夹还是空的，在公开图片的分享页选择收藏，就能在这里找到。</p><a class="ba-button ba-button--soft" href="{{ url_for('public.discover') }}">去发现画面</a></div>
     </section>
   </div>
 {% endblock %}

@@ -1,85 +1,157 @@
 {% extends "layouts/site.html" %}
-{% block title %}{{ site_name }} · {{ site_tagline }}{% endblock %}
+{% from 'components/media.html' import picture %}
+{% from 'components/macros.html' import empty_art, icon %}
+{% block title %}{{ site_name }}｜首页{% endblock %}
 {% block content %}
+  {% set signed_in = current_user.is_authenticated %}
+  {% set signed_in = current_user.is_authenticated %}
   <div class="page-shell home-page">
-    <section class="hero-grid">
-      <div class="hero-copy" data-reveal>
-        <span class="eyebrow">把喜欢的画面收好</span>
-        <h1>把喜欢的画面，<br><em>认真收藏起来。</em></h1>
-        <p>上传、整理、收藏和分享，都可以轻松完成。</p>
-        <div class="hero-actions">
-          <a class="button button--primary" href="{{ url_for('images.upload') if current_user.is_authenticated and current_user.has_permission('images.upload') else (url_for('gateway.login', next=url_for('images.upload')) if gateway_enabled else url_for('public.home')) }}">开始上传</a>
-          <a class="button button--soft" href="{{ url_for('public.discover') }}">逛逛公开画廊</a>
-        </div>
-        <div class="hero-chips" aria-label="可以做什么">
-          <span>随手上传</span><span>轻松整理</span><span>放心分享</span><span>随时找回</span>
-        </div>
-      </div>
 
-      <div class="hero-showcase card" data-reveal aria-label="图片整理示例">
-        <div class="hero-showcase__header">
-          <span><i aria-hidden="true"></i>最近整理</span>
-          <em>已保存</em>
-        </div>
-        <div class="hero-showcase__collage">
-          {% for image in recent_images[:3] %}
-            <figure class="hero-showcase__photo hero-showcase__photo--{{ loop.index }}">
-              <img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="{{ image.alt_text or image.title }}" loading="eager">
-            </figure>
+    {# 一、首屏：左边说明，右边是一个窗口，里面斜放的照片墙自己缓缓滚动 #}
+    <section class="home-hero">
+      <div class="home-hero__copy" data-reveal>
+        <div class="home-hero__badges"><span class="ba-badge">本地优先</span><span class="ba-badge ba-badge--ok">v{{ app_version }}</span></div>
+        <h1>保存图片，<br>慢慢整理。</h1>
+        <p>上传图片、整理相册，自己决定谁能看到；遇到喜欢的公开图片，还可以收藏起来。</p>
+        <div class="hero-actions">
+          {% if signed_in %}
+            <a class="ba-button" href="{{ url_for('public.dashboard') }}">进入仪表盘</a>
           {% else %}
-            <figure class="hero-showcase__photo hero-showcase__photo--1"><span aria-hidden="true">✦</span></figure>
-            <figure class="hero-showcase__photo hero-showcase__photo--2"><span aria-hidden="true">◌</span></figure>
-            <figure class="hero-showcase__photo hero-showcase__photo--3"><span aria-hidden="true">♡</span></figure>
-          {% endfor %}
+            <a class="ba-button" href="{{ url_for('auth.login') }}">登录</a>
+            <a class="ba-button ba-button--soft" href="{{ url_for('auth.register') }}">创建账号</a>
+          {% endif %}
         </div>
-        <div class="hero-showcase__footer">
-          <span><strong>今天的片段</strong><small>按时间排好，随时可以查看</small></span>
-          <b>{{ recent_images|length if recent_images else 3 }} 张</b>
+        <ul class="home-hero__facts" aria-label="特点">
+          <li>{{ icon('check') }}<span>JPEG、PNG、WebP、GIF</span></li>
+          <li>{{ icon('check') }}<span>页面不加载第三方脚本与字体</span></li>
+          <li>{{ icon('check') }}<span>自带备份与恢复</span></li>
+        </ul>
+      </div>
+      <div class="photo-window" data-reveal role="img" aria-label="最近分享的图片在窗口里缓缓滚动">
+        <div class="photo-wall">
+          {% if wall_columns %}
+            {% for column in wall_columns %}
+              <div class="photo-col photo-col--{{ loop.index }}">
+                {% for copy in (0, 1) %}
+                  {% for item in column %}
+                    <figure class="wall-photo wall-photo--{{ item.ratio }}"{% if copy %} aria-hidden="true"{% endif %}>{{ picture(item.image, href=url_for('public.share_image', public_id=item.image.public_id), eager=(copy == 0 and loop.index <= 2)) }}</figure>
+                  {% endfor %}
+                {% endfor %}
+              </div>
+            {% endfor %}
+          {% else %}
+            {% for column in range(3) %}
+              <div class="photo-col photo-col--{{ column + 1 }}">
+                {% for copy in (0, 1) %}
+                  {% for row in range(4) %}
+                    <figure class="wall-photo wall-photo--{{ ['tall', 'square', 'wide'][(column + row) % 3] }} wall-photo--blank wall-photo--tone-{{ (column + row) % 3 }}"{% if copy %} aria-hidden="true"{% endif %}></figure>
+                  {% endfor %}
+                {% endfor %}
+              </div>
+            {% endfor %}
+          {% endif %}
         </div>
+        {% if not wall_columns %}<p class="photo-window__empty ba-badge">还没有公开图片</p>{% endif %}
       </div>
     </section>
 
-    {% if recent_images or featured_albums %}
-      <section class="section discovery-preview">
-        <div class="section-heading"><div><span class="eyebrow">最新分享</span><h2>刚刚分享的画面</h2></div><a class="button button--soft" href="{{ url_for('public.discover') }}">查看全部</a></div>
-        <div class="discovery-image-grid">
-          {% for image in recent_images %}
-            <a class="card discovery-tile" href="{{ url_for('public.share_image', public_id=image.public_id) }}" data-reveal><img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="{{ image.alt_text or image.title }}" loading="lazy"><span><strong>{{ image.title or image.original_name }}</strong><small>来自 @{{ image.owner.username }}</small></span></a>
+    {# 二、站点现在：大数字从 0 数到真实数字，旁边是近 14 天每天新增的公开图片 #}
+    {% set chart = overview.chart %}
+    <section class="home-section" aria-label="站点现在">
+      <div class="section-head" data-reveal><h2 class="ba-heading">站点现在</h2></div>
+      <div class="stat-board">
+        <div class="stat-figures">
+          <div class="stat-figure"><strong class="stat-figure__value" data-count-to="{{ overview.images }}">{{ overview.images }}</strong><span class="stat-figure__label">公开图片</span><small>大家分享的画面</small></div>
+          <div class="stat-figure"><strong class="stat-figure__value" data-count-to="{{ overview.albums }}">{{ overview.albums }}</strong><span class="stat-figure__label">公开相册</span><small>整理好的图片集</small></div>
+          <div class="stat-figure"><strong class="stat-figure__value" data-count-to="{{ overview.creators }}">{{ overview.creators }}</strong><span class="stat-figure__label">分享的人</span><small>发布过公开图片</small></div>
+          <div class="stat-figure"><strong class="stat-figure__value" data-count-to="{{ overview.views }}">{{ overview.views }}</strong><span class="stat-figure__label">浏览次数</span><small>公开图片被看过</small></div>
+        </div>
+        <article class="stat-chart" data-reveal>
+          <header class="stat-chart__head"><h3>近 {{ chart.days }} 天新增公开图片</h3><span class="ba-badge">共 {{ chart.total }} 张</span></header>
+          <svg class="line-chart" viewBox="0 0 {{ chart.width }} {{ chart.height }}" role="img" aria-label="近 {{ chart.days }} 天每天新增的公开图片数量，共 {{ chart.total }} 张，单日最多 {{ chart.peak }} 张">
+            <text class="line-chart__peak" x="12" y="16">单日最多 {{ chart.peak }} 张</text>
+            <path class="line-chart__line" d="{{ chart.path }}"/>
+            {% for point in chart.points %}
+              <circle class="line-chart__dot{% if loop.last %} is-latest{% endif %}" cx="{{ point.x }}" cy="{{ point.y }}" r="{{ 5 if loop.last else 3.5 }}"><title>{{ point.label }}：{{ point.count }} 张</title></circle>
+            {% endfor %}
+            {% for index in chart.ticks %}
+              {% set point = chart.points[index] %}
+              <text class="line-chart__tick" x="{{ point.x }}" y="{{ chart.height - 10 }}" text-anchor="{{ 'start' if loop.first else ('end' if loop.last else 'middle') }}">{{ point.short }}</text>
+            {% endfor %}
+            {% set last = chart.points[-1] %}
+            <text class="line-chart__value" x="{{ last.x }}" y="{{ last.y - 12 }}" text-anchor="end">{{ last.count }}</text>
+          </svg>
+        </article>
+      </div>
+    </section>
+
+    {# 三、能做什么：只挑几项介绍，大小一样的方形圆角卡片 #}
+    <section class="home-section" aria-label="能做什么">
+      <div class="section-head" data-reveal><h2 class="ba-heading">能做什么</h2></div>
+      <div class="square-grid">
+        <article class="square-card" data-reveal>
+          <span class="square-card__icon" aria-hidden="true">{{ icon('image') }}</span>
+          <h3>图库</h3>
+          <p>按状态筛选，回收站里随时可以恢复。</p>
+        </article>
+        <article class="square-card" data-reveal>
+          <span class="square-card__icon" aria-hidden="true">{{ icon('album') }}</span>
+          <h3>相册</h3>
+          <p>勾选图片、调整顺序，删相册不删图。</p>
+        </article>
+        <article class="square-card" data-reveal>
+          <span class="square-card__icon" aria-hidden="true">{{ icon('heart') }}</span>
+          <h3>收藏</h3>
+          <p>原页面一点就收藏，随时回头找。</p>
+        </article>
+        <article class="square-card" data-reveal>
+          <span class="square-card__icon" aria-hidden="true">{{ icon('search') }}</span>
+          <h3>发现</h3>
+          <p>搜标题、作者或描述，按时间或热度排序。</p>
+        </article>
+      </div>
+    </section>
+
+    {% if featured_albums %}
+      <section class="home-section" aria-label="精选相册">
+        <div class="section-head" data-reveal><h2 class="ba-heading">精选相册</h2></div>
+        <div class="tile-grid tile-grid--four">
+          {% for album in featured_albums %}
+            <article class="tile album-tile" data-reveal>
+              <div class="album-cover">{% if album.cover_image %}{{ picture(album.cover_image, href=url_for('public.album_detail', public_id=album.public_id)) }}{% else %}<a href="{{ url_for('public.album_detail', public_id=album.public_id) }}" aria-label="{{ album.title }}">{{ icon('album') }}</a>{% endif %}</div>
+              <div class="tile__body"><strong><a href="{{ url_for('public.album_detail', public_id=album.public_id) }}">{{ album.title }}</a></strong><span class="tile__meta">@{{ album.owner.username }} · {{ album.items|length }} 张</span></div>
+            </article>
           {% endfor %}
         </div>
       </section>
     {% endif %}
 
-    <section class="section">
-      <div class="section-heading">
-        <div><span class="eyebrow">慢慢整理</span><h2>让每张图片都有自己的位置</h2></div>
-      </div>
-      <div class="feature-grid">
-        <article class="card feature-card" data-reveal>
-          <span class="soft-icon tone-blue">01</span>
-          <h3>轻轻收藏</h3>
-          <p>看到喜欢的公开图片，点一下就能留在收藏里。</p>
-        </article>
-        <article class="card feature-card" data-reveal>
-          <span class="soft-icon tone-pink">02</span>
-          <h3>整理成册</h3>
-          <p>把同一段回忆放进相册，也可以调整它们的顺序。</p>
-        </article>
-        <article class="card feature-card" data-reveal>
-          <span class="soft-icon tone-mint">03</span>
-          <h3>分享出去</h3>
-          <p>复制图片或相册链接，就能分享给别人。</p>
-        </article>
+    {# 六、常见问题 #}
+    <section class="home-section" aria-label="常见问题">
+      <div class="section-head" data-reveal><h2 class="ba-heading">常见问题</h2></div>
+      <div class="faq-grid">
+        <details class="faq" data-reveal><summary>支持哪些图片格式？</summary><p>JPEG、PNG、WebP 和 GIF。上传时会先真实解码，格式不对或文件损坏会直接提示。</p></details>
+        <details class="faq" data-reveal><summary>别人默认能看到我的图片吗？</summary><p>不能。新图片默认仅自己可见，选择“通过链接分享”或“公开展示”之后才会被别人看到。</p></details>
+        <details class="faq" data-reveal><summary>删除后还能找回吗？</summary><p>移入回收站的图片可以恢复，但仍占用空间；在回收站里永久删除后无法恢复。</p></details>
+        <details class="faq" data-reveal><summary>图片会被改动吗？</summary><p>会重新编码并清除拍摄位置等附带信息，同时生成缩略图，原图链接和分享页都可以复制。</p></details>
+        <details class="faq" data-reveal><summary>可以用程序批量上传吗？</summary><p>可以。创建应用钥匙后，让程序带着钥匙调用上传接口，完整钥匙只显示一次。</p></details>
+        <details class="faq" data-reveal><summary>我的数据存在哪里？</summary><p>保存在运行 baka图床 的服务器上，不会同步给任何第三方服务；具体收集哪些信息，见页尾的隐私条款。</p></details>
       </div>
     </section>
 
-    <section class="section next-stage-card card" data-reveal>
-      <div>
-        <span class="eyebrow">你的收藏</span>
-        <h2>想看的时候，随时回来</h2>
-        <p>继续发现新的画面，或者回到自己的图库慢慢整理。</p>
+    {# 七、行动卡 #}
+    <section class="home-section" aria-label="开始使用">
+      <div class="cta-card" data-reveal>
+        <div><h2 class="ba-heading">现在就开始</h2><p>{{ '回到仪表盘，继续整理你的图片吧。' if signed_in else '创建账号，把第一张图片放进来。' }}</p></div>
+        <div class="hero-actions">
+          {% if signed_in %}
+            <a class="ba-button" href="{{ url_for('public.dashboard') }}">进入仪表盘</a>
+          {% else %}
+            <a class="ba-button" href="{{ url_for('auth.register') }}">创建账号</a>
+            <a class="ba-button ba-button--soft" href="{{ url_for('auth.login') }}">登录</a>
+          {% endif %}
+        </div>
       </div>
-      <a class="button button--soft" href="{{ url_for('images.library') if current_user.is_authenticated and current_user.has_permission('images.manage_own') else url_for('public.discover') }}">{{ '看看我的图片' if current_user.is_authenticated else '继续发现' }}</a>
     </section>
   </div>
 {% endblock %}

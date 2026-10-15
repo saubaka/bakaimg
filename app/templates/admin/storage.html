@@ -1,7 +1,29 @@
 {% extends "layouts/admin.html" %}
-{% block title %}存储与配额 · {{ system_name }}{% endblock %}
-{% block admin_title %}存储与配额{% endblock %}
+{% from "components/macros.html" import stat %}
+{% block title %}{{ system_name }}｜后台｜图片统计{% endblock %}
+{% block admin_title %}图片统计{% endblock %}
 {% block admin_content %}
-  <section class="metric-grid storage-metrics"><article class="card metric-card"><span>图片记录</span><strong>{{ image_count }}</strong><small>包含回收站</small></article><article class="card metric-card"><span>清理后原图</span><strong>{{ format_bytes(original_bytes) }}</strong><small>本地随机路径</small></article><article class="card metric-card"><span>图片变体</span><strong>{{ format_bytes(variant_bytes) }}</strong><small>当前为WebP缩略图</small></article><article class="card metric-card"><span>需关注</span><strong>{{ trashed_count + quarantined_count }}</strong><small>回收站 {{ trashed_count }} · 隔离 {{ quarantined_count }}</small></article></section>
-  <section class="card admin-panel storage-users"><div class="section-heading"><div><span class="eyebrow">USER QUOTAS</span><h2>账号容量</h2></div></div><div class="quota-list">{% for user, used_bytes, used_count in usage_rows %}<article><div><strong>{{ user.display_name }}</strong><small>@{{ user.username }}</small></div><div class="quota-meter"><progress value="{{ used_bytes }}" max="{{ user.storage_quota_bytes or 1 }}">{{ used_bytes }}</progress><small>{{ format_bytes(used_bytes) }} / {{ format_bytes(user.storage_quota_bytes) }} · {{ used_count }} / {{ user.image_quota_count }} 张</small></div><a class="button button--soft button--small" href="{{ url_for('admin.edit_user', user_id=user.id) }}">调整配额</a></article>{% else %}<p>还没有账号。</p>{% endfor %}</div></section>
+  <section class="metric-grid storage-metrics">
+    {{ stat('图片记录', image_count, '包含回收站', 'image') }}
+    {{ stat('清理后原图', format_bytes(original_bytes), '本地随机路径', 'database') }}
+    {{ stat('图片变体', format_bytes(variant_bytes), '当前为WebP缩略图', 'album') }}
+    {{ stat('需关注', trashed_count + quarantined_count, '回收站 ' ~ trashed_count ~ ' · 隔离 ' ~ quarantined_count, 'alert', 'peach' if (trashed_count + quarantined_count) else '') }}
+  </section>
+  <section class="ba-panel storage-users">
+    <div class="section-heading"><h2 class="ba-heading">账号使用情况</h2></div>
+    {% if usage_rows %}
+      <table class="ba-table table-cards">
+        <thead><tr><th>账号</th><th>用量</th><th><span class="sr-only">操作</span></th></tr></thead>
+        <tbody>
+          {% for user, used_bytes, used_count in usage_rows %}
+            <tr>
+              <td data-label="账号"><div class="ba-table__who"><span class="ba-avatar">{{ user.display_name[:1] }}</span><div>{{ user.display_name }}<small>@{{ user.username }}</small></div></div></td>
+              <td data-label="用量"><div class="quota-meter"><progress value="{{ used_bytes }}" max="{{ user.storage_quota_bytes or 1 }}">{{ used_bytes }}</progress><small>{{ format_bytes(used_bytes) }} / {{ format_bytes(user.storage_quota_bytes) }} · {{ used_count }} / {{ user.image_quota_count }} 张</small></div></td>
+              <td class="table-actions"><a class="ba-button ba-button--soft u-compact" href="{{ url_for('admin.edit_user', user_id=user.id) }}">调整上限</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}<p class="ba-lead">还没有账号。</p>{% endif %}
+  </section>
 {% endblock %}

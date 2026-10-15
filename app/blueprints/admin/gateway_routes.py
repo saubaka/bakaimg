@@ -1,4 +1,4 @@
-"""Cloudgate connection administration and local administrator binding."""
+"""Optional external login administration and local administrator binding."""
 
 from __future__ import annotations
 
@@ -154,7 +154,7 @@ def gateway_connection_save():
     else:
         action = "gateway.connection.update"
         connection_created = False
-    configuration.name = "统一登录"
+    configuration.name = "外部登录"
     configuration.issuer = issuer
     configuration.client_id = form.client_id.data.strip()
     if form.client_secret.data:
@@ -206,7 +206,7 @@ def gateway_connection_save():
         elif credentials_changed:
             flash("连接密钥已更新并验证通过，旧登录会话已经撤销。", "success")
         elif current_user.gateway_subject:
-            flash("网关连接已更新并验证通过。", "success")
+            flash("外部登录设置已更新。", "success")
         else:
             flash("连接已创建并验证通过。下一步请先绑定当前管理员。", "success")
     return redirect(url_for("admin.gateway_settings"))
@@ -231,7 +231,7 @@ def gateway_connection_delete():
         f"删除连接 {configuration.name}",
     )
     db.session.commit()
-    flash("网关连接、管理员绑定和本地网关会话已经删除。", "info")
+    flash("外部登录设置和绑定已经删除。", "info")
     return redirect(url_for("admin.gateway_settings"))
 
 
@@ -246,8 +246,8 @@ def gateway_unlink():
         "gateway.identity.unlink",
         "user",
         str(current_user.id),
-        f"解除统一登录身份 {previous}",
+        f"解除外部登录身份 {previous}",
     )
     db.session.commit()
-    flash("管理员绑定已解除，统一登录与管理员识别已经关闭。", "info")
+    flash("管理员绑定已解除，外部登录已经关闭。", "info")
     return redirect(url_for("admin.gateway_settings"))

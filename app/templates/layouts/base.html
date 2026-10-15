@@ -20,29 +20,47 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="color-scheme" content="light">
-    <meta name="theme-color" content="#f6f9fc">
+    <meta name="theme-color" content="#f6faff">
     <meta name="description" content="{{ site_tagline }}">
     <script src="{{ url_for('static', filename='scripts/transition-bootstrap.js', v=app_version) }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles/app.css', v=app_version) }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/window.svg', v=app_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='design/bakamail-admin-v5/tokens.css', v=app_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='design/bakamail-admin-v5/components/bundle.css', v=app_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/base.css', v=app_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/site.css', v=app_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/admin.css', v=app_version) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles/overlays.css', v=app_version) }}">
     <title>{% block title %}{{ site_name }}{% endblock %}</title>
   </head>
-  <body class="{% block body_class %}{% endblock %}">
+  <body class="ba-root {% block body_class %}{% endblock %}">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
     {% block body %}{% endblock %}
-    <div class="toast-region" data-toast-region aria-live="polite" aria-atomic="true" aria-relevant="additions text">
+    <div class="toast-region" data-toast-region aria-label="通知">
       {% for category, message in get_flashed_messages(with_categories=true) %}
-        <div class="toast toast--{{ category }}" data-toast role="{{ 'alert' if category in ['error', 'warning'] else 'status' }}">{{ message }}</div>
+        <div class="ba-toast{{ ' ba-toast--ok' if category == 'success' }}{{ ' ba-toast--error' if category in ['error', 'warning'] }}" data-toast data-toast-category="{{ category }}" role="{{ 'alert' if category in ['error', 'warning'] else 'status' }}">{{ message }}</div>
       {% endfor %}
     </div>
-    <dialog class="modal app-system-dialog" data-app-system-dialog aria-labelledby="app-system-dialog-title" aria-describedby="app-system-dialog-message">
-      <div class="app-system-dialog__icon" aria-hidden="true">✦</div>
-      <div class="app-system-dialog__content">
-        <div class="modal__header"><div><h2 id="app-system-dialog-title" data-app-dialog-title>确认操作</h2></div><button class="icon-button" type="button" data-app-dialog-cancel aria-label="关闭">×</button></div>
-        <p id="app-system-dialog-message" data-app-dialog-message></p>
-        <label class="field app-system-dialog__field" data-app-dialog-field hidden><span class="field__label" data-app-dialog-input-label>请输入内容</span><input type="text" data-app-dialog-input autocomplete="off"></label>
-        <div class="button-row button-row--end"><button class="button button--soft" type="button" data-app-dialog-cancel>取消</button><button class="button button--primary" type="button" data-app-dialog-confirm>确认</button></div>
+    <dialog class="ba-dialog app-system-dialog" data-app-system-dialog aria-labelledby="app-system-dialog-title" aria-describedby="app-system-dialog-message">
+      <div class="ba-dialog__head">
+        <div><span class="ba-tag" data-app-dialog-tag>请确认</span><h2 id="app-system-dialog-title" data-app-dialog-title>确认操作</h2></div>
+        <button class="ba-button ba-button--soft ba-button--icon" type="button" data-app-dialog-cancel aria-label="关闭">×</button>
       </div>
+      <p class="ba-dialog__body" id="app-system-dialog-message" data-app-dialog-message></p>
+      <label class="ba-field" data-app-dialog-field hidden><span data-app-dialog-input-label>请输入内容</span><input class="ba-input" type="text" data-app-dialog-input autocomplete="off"></label>
+      <div class="ba-dialog__actions"><button class="ba-button ba-button--soft" type="button" data-app-dialog-cancel>取消</button><button class="ba-button" type="button" data-app-dialog-confirm>确认</button></div>
     </dialog>
+    <script src="{{ url_for('static', filename='scripts/motion-controller.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/controls.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/navigation.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/surface-lifecycle.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/dialogs.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/notifications.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/auth.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/appearance.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/media.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/favorites.js', v=app_version) }}" defer></script>
     <script src="{{ url_for('static', filename='scripts/app.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/counters.js', v=app_version) }}" defer></script>
+    <script src="{{ url_for('static', filename='scripts/shell.js', v=app_version) }}" defer></script>
   </body>
 </html>

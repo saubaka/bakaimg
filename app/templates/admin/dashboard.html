@@ -1,41 +1,29 @@
 {% extends "layouts/admin.html" %}
-{% block title %}仪表盘 · {{ system_name }}{% endblock %}
+{% from "components/macros.html" import stat %}
+{% block title %}{{ system_name }}｜后台｜仪表盘{% endblock %}
 {% block admin_title %}仪表盘{% endblock %}
 {% block admin_content %}
-  <section class="admin-hero card" data-reveal>
-    <div>
-      <span class="eyebrow">PHASE 6 SAFE OPERATIONS</span>
-      <h2>安全运维与可验证恢复已经接通</h2>
-      <p>数据库、媒体和迁移版本统一诊断；备份带逐文件摘要与恢复预检，破坏性恢复只允许停服后在本机执行。</p>
-    </div>
-    <span class="admin-hero-art" aria-hidden="true">☁</span>
-  </section>
-
   <section class="metric-grid">
-    <article class="card metric-card"><span>应用版本</span><strong>{{ app_version }}</strong><small>独立发布序列</small></article>
-    <article class="card metric-card"><span>账号总数</span><strong>{{ user_count }}</strong><small>{{ active_session_count }} 个活动会话</small></article>
-    <article class="card metric-card"><span>收藏与令牌</span><strong>{{ favorite_count }}</strong><small>{{ active_token_count }} 枚未撤销令牌</small></article>
-    <article class="card metric-card"><span>实际存储</span><strong>{{ format_bytes(stored_bytes) }}</strong><small>原图与缩略图</small></article>
+    {{ stat('图片总数', image_count, public_image_count ~ ' 张公开图片', 'image') }}
+    {{ stat('账号总数', user_count, active_session_count ~ ' 个活动会话', 'users') }}
+    {{ stat('收藏', favorite_count, active_token_count ~ ' 枚可用钥匙', 'heart') }}
+    {{ stat('图片大小', format_bytes(stored_bytes), '原图和预览图', 'database') }}
   </section>
-
   <div class="admin-two-column">
-    <section class="card admin-panel">
-      <div class="section-heading"><div><span class="eyebrow">SYSTEM EVENTS</span><h2>最近状态</h2></div></div>
+    <section class="ba-panel">
+      <div class="section-heading"><h2 class="ba-heading">最近状态</h2></div>
       <div class="event-list">
         {% for event in recent_events %}
           <article><i></i><span><strong>{{ event.message }}</strong><small>{{ event.created_at.strftime('%Y-%m-%d %H:%M') }}</small></span></article>
         {% else %}
-          <article><i></i><span><strong>身份基础等待初始化</strong><small>运行 flask init-site</small></span></article>
+          <article><i></i><span><strong>还没有新的记录</strong><small>新的操作会显示在这里</small></span></article>
         {% endfor %}
       </div>
     </section>
-    <section class="card admin-panel">
-      <div class="section-heading"><div><span class="eyebrow">OPERATIONS</span><h2>恢复边界</h2></div></div>
-      <ol class="roadmap-list">
-        <li><span>01</span><div><strong>创建即验证</strong><small>SQLite快照、媒体清单与SHA-256同时核对</small></div></li>
-        <li><span>02</span><div><strong>恢复前回滚点</strong><small>替换正式数据前自动保留当前完整备份</small></div></li>
-        <li><span>03</span><div><strong>凭据不复活</strong><small>恢复后清空浏览器会话并撤销存量API令牌</small></div></li>
-      </ol>
+    <section class="ba-panel">
+      <div class="section-heading"><h2 class="ba-heading">备份与恢复</h2></div>
+      <p class="ba-lead">保存当前图片和设置，或检查已有备份。</p>
+      <a class="ba-button ba-button--soft" href="{{ url_for('admin.operations') }}">管理备份</a>
     </section>
   </div>
 {% endblock %}

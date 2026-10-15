@@ -1,22 +1,21 @@
 {% extends "layouts/site.html" %}
-{% block title %}创建首位管理员 · {{ site_name }}{% endblock %}
+{% block title %}{{ site_name }}｜创建首位管理员{% endblock %}
 {% block content %}
   <div class="page-shell auth-shell">
-    <section class="card auth-card auth-card--wide" data-reveal>
-      <span class="eyebrow">LOCAL ADMIN SETUP</span>
-      <h1>创建第一位管理员</h1>
-      <p>此页面只允许从本机打开，恢复票据五分钟有效且只能使用一次。密码至少12位，并包含字母与数字。</p>
+    <section class="ba-panel auth-card auth-card--wide" data-reveal>
+      <h1 class="ba-title">创建第一位管理员</h1>
+      <p class="ba-lead">这个入口只允许从本机打开，并且只能使用一次。密码至少12位，需要包含字母和数字。</p>
       <form class="soft-form form-grid" method="post">
         {{ form.hidden_tag() }}
-        <label>{{ form.username.label }}{{ form.username(autocomplete="username") }}</label>
-        <label>{{ form.display_name.label }}{{ form.display_name(autocomplete="name") }}</label>
-        <label class="form-span">{{ form.email.label }}{{ form.email(type="email", autocomplete="email") }}</label>
-        <label>{{ form.password.label }}{{ form.password(autocomplete="new-password") }}</label>
-        <label>{{ form.confirm_password.label }}{{ form.confirm_password(autocomplete="new-password") }}</label>
-        {% for field in form if field.errors %}{% for error in field.errors %}<small class="form-error form-span">{{ error }}</small>{% endfor %}{% endfor %}
-        <div class="form-span">{{ form.submit(class="button button--primary button--full") }}</div>
+        <label class="ba-field">{{ form.username.label }}{{ form.username(autocomplete="username") }}</label>
+        <label class="ba-field">{{ form.display_name.label }}{{ form.display_name(autocomplete="name") }}</label>
+        <label class="ba-field form-span">{{ form.email.label }}{{ form.email(type="email", autocomplete="email") }}</label>
+        <label class="ba-field">{{ form.password.label }}{{ form.password(autocomplete="new-password") }}</label>
+        <label class="ba-field">{{ form.confirm_password.label }}{{ form.confirm_password(autocomplete="new-password") }}</label>
+        {% for field in form if field.errors %}{% for error in field.errors %}<small class="ba-field__error form-span">{{ error }}</small>{% endfor %}{% endfor %}
+        <div class="form-span">{{ form.submit(class="ba-button u-full") }}</div>
       </form>
-      <p class="security-note">创建完成后，请从“账号”页面检查密码和设备会话；恢复链接会立即失效。</p>
+      <p class="security-note ba-lead">创建完成后可以直接登录，恢复入口会立即失效。</p>
     </section>
   </div>
 {% endblock %}

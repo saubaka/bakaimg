@@ -311,7 +311,7 @@ class GatewayIdentitySession(db.Model):
 
 
 class GatewayConfiguration(db.Model):
-    """The single Cloudgate OIDC connection managed from the local admin."""
+    """The optional external identity connection managed from the local admin."""
 
     __tablename__ = "gateway_configurations"
     __table_args__ = (
@@ -330,7 +330,7 @@ class GatewayConfiguration(db.Model):
     )
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), nullable=False, default="统一登录")
+    name = db.Column(db.String(80), nullable=False, default="外部登录")
     issuer = db.Column(db.String(500), nullable=False)
     client_id = db.Column(db.String(200), nullable=False)
     client_secret_encrypted = db.Column(db.Text, nullable=False)

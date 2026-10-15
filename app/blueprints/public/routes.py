@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, url_for
-from flask_login import current_user
+from flask_login import current_user, login_required
 from sqlalchemy import text
 
 from app.blueprints.public import public_bp
@@ -21,6 +22,7 @@ from app.services.discovery import (
     public_image_conditions,
 )
 from app.services.identity import get_setting
+from app.services.media import storage_usage
 
 
 @public_bp.get("/")
@@ -30,7 +32,7 @@ def home():
             db.select(ImageAsset)
             .where(*public_image_conditions())
             .order_by(ImageAsset.published_at.desc(), ImageAsset.created_at.desc())
-            .limit(6)
+            .limit(12)
         )
         .unique()
         .all()
@@ -40,7 +42,7 @@ def home():
             db.select(Album)
             .where(*public_album_conditions())
             .order_by(Album.is_featured.desc(), Album.created_at.desc())
-            .limit(3)
+            .limit(4)
         )
         .unique()
         .all()
@@ -49,6 +51,171 @@ def home():
         "public/home.html",
         recent_images=recent_images,
         featured_albums=featured_albums,
+        overview=_home_overview(),
+        wall_columns=_wall_columns(recent_images),
+    )
+
+
+_WALL_RATIOS = ("tall", "square", "wide")
+
+
+def _wall_columns(images: list[ImageAsset], columns: int = 3, rows: int = 4) -> list[list[dict]]:
+    """Spread public images over the tilted wall; short lists repeat, shapes rotate by position."""
+    if not images:
+        return []
+    return [
+        [
+            {
+                "image": images[(column + columns * row) % len(images)],
+                "ratio": _WALL_RATIOS[(column + row) % 3],
+            }
+            for row in range(rows)
+        ]
+        for column in range(columns)
+    ]
+
+
+def _upload_chart(days: int = 14) -> dict[str, object]:
+    """Public images added per day for the last `days` days, as ready-to-draw SVG numbers."""
+    today = datetime.now(UTC).date()
+    first = today - timedelta(days=days - 1)
+    start = datetime.combine(first, time.min, tzinfo=UTC)
+    rows = db.session.execute(
+        db.select(db.func.date(ImageAsset.created_at), db.func.count())
+        .where(*public_image_conditions(), ImageAsset.created_at >= start)
+        .group_by(db.func.date(ImageAsset.created_at))
+    ).all()
+    per_day = {str(day): int(total) for day, total in rows}
+    dates = [first + timedelta(days=offset) for offset in range(days)]
+    counts = [per_day.get(day.isoformat(), 0) for day in dates]
+    width, height, left, right, top, bottom = 520, 200, 12, 12, 30, 34
+    peak = max(counts) if max(counts) > 0 else 1
+    step = (width - left - right) / (days - 1)
+    points = [
+        {
+            "x": round(left + index * step, 1),
+            "y": round(top + (1 - value / peak) * (height - top - bottom), 1),
+            "count": value,
+            "label": f"{day.month}月{day.day}日",
+            "short": f"{day.month}/{day.day}",
+        }
+        for index, (day, value) in enumerate(zip(dates, counts, strict=True))
+    ]
+    path = f"M {points[0]['x']} {points[0]['y']}"
+    for before, after in zip(points, points[1:], strict=False):
+        middle = round((before["x"] + after["x"]) / 2, 1)
+        path += f" C {middle} {before['y']}, {middle} {after['y']}, {after['x']} {after['y']}"
+    return {
+        "points": points,
+        "path": path,
+        "total": sum(counts),
+        "peak": max(counts),
+        "ticks": [index for index in range(days) if index in (0, 4, 8, 13) or index == days - 1],
+        "width": width,
+        "height": height,
+        "days": days,
+    }
+
+
+def _home_overview() -> dict[str, object]:
+    """Four site-wide numbers and the recent-upload line for the home page."""
+    count = db.func.count()
+    return {
+        "chart": _upload_chart(),
+        "images": db.session.scalar(
+            db.select(count).select_from(ImageAsset).where(*public_image_conditions())
+        ),
+        "albums": db.session.scalar(
+            db.select(count).select_from(Album).where(*public_album_conditions())
+        ),
+        "creators": db.session.scalar(
+            db.select(db.func.count(db.distinct(ImageAsset.owner_id))).where(
+                *public_image_conditions()
+            )
+        ),
+        "views": db.session.scalar(
+            db.select(db.func.coalesce(db.func.sum(ImageAsset.view_count), 0)).where(
+                *public_image_conditions()
+            )
+        ),
+    }
+
+
+@public_bp.get("/dashboard/")
+@login_required
+def dashboard():
+    count = db.func.count()
+    mine = ImageAsset.owner_id == current_user.id
+    used_bytes, used_count = storage_usage(current_user.id)
+    by_visibility = {"private": 0, "unlisted": 0, "public": 0}
+    by_visibility.update(
+        dict(
+            db.session.execute(
+                db.select(ImageAsset.visibility, count)
+                .where(mine, ImageAsset.status == "active")
+                .group_by(ImageAsset.visibility)
+            ).all()
+        )
+    )
+    my_images = (
+        db.session.scalars(
+            db.select(ImageAsset)
+            .where(mine, ImageAsset.status == "active")
+            .order_by(ImageAsset.created_at.desc())
+            .limit(8)
+        )
+        .unique()
+        .all()
+    )
+    my_albums = (
+        db.session.scalars(
+            db.select(Album)
+            .where(Album.owner_id == current_user.id, Album.status == "active")
+            .order_by(Album.created_at.desc())
+            .limit(4)
+        )
+        .unique()
+        .all()
+    )
+    favorites = (
+        db.session.scalars(
+            db.select(ImageFavorite)
+            .join(ImageAsset, ImageAsset.id == ImageFavorite.image_id)
+            .where(ImageFavorite.user_id == current_user.id, *public_image_conditions())
+            .order_by(ImageFavorite.created_at.desc())
+            .limit(4)
+        )
+        .unique()
+        .all()
+    )
+    quota_bytes = int(current_user.storage_quota_bytes or 0)
+    quota_count = int(current_user.image_quota_count or 0)
+    return render_template(
+        "public/dashboard.html",
+        stats={
+            "images": by_visibility["private"]
+            + by_visibility["unlisted"]
+            + by_visibility["public"],
+            "albums": db.session.scalar(
+                db.select(count)
+                .select_from(Album)
+                .where(Album.owner_id == current_user.id, Album.status == "active")
+            ),
+            "favorites": db.session.scalar(
+                db.select(count)
+                .select_from(ImageFavorite)
+                .where(ImageFavorite.user_id == current_user.id)
+            ),
+            "bytes": used_bytes,
+        },
+        by_visibility=by_visibility,
+        my_images=my_images,
+        my_albums=my_albums,
+        favorites=favorites,
+        used_bytes=used_bytes,
+        used_count=used_count,
+        quota_bytes=quota_bytes,
+        quota_count=quota_count,
     )
 
 
@@ -167,17 +334,26 @@ def toggle_favorite(public_id: str):
             ImageFavorite.image_id == image.id,
         )
     )
-    if favorite:
-        db.session.delete(favorite)
+    is_async = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    desired = request.form.get("favorite_state") if is_async else None
+    if is_async and desired not in ("add", "remove"):
+        abort(400)
+    should_remove = desired == "remove" if is_async else favorite is not None
+    if should_remove:
+        if favorite:
+            db.session.delete(favorite)
         action = "favorite.remove"
         message = "已从收藏夹移除。"
     else:
-        favorite = ImageFavorite(user_id=current_user.id, image_id=image.id)
-        db.session.add(favorite)
+        if not favorite:
+            favorite = ImageFavorite(user_id=current_user.id, image_id=image.id)
+            db.session.add(favorite)
         action = "favorite.add"
         message = "已经收藏这张图片。"
     record_audit(action, "image_asset", str(image.id), message)
     db.session.commit()
+    if is_async:
+        return jsonify(ok=True, is_favorite=not should_remove, message=message)
     flash(message, "success")
     return redirect(url_for("public.share_image", public_id=image.public_id))
 

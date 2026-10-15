@@ -1,83 +1,83 @@
 {% extends "layouts/admin.html" %}
-{% macro field_errors(field) -%}{% for error in field.errors %}<small class="form-error">{{ error }}</small>{% endfor %}{%- endmacro %}
-{% block title %}登录连接 · {{ site_name }}{% endblock %}
-{% block admin_title %}统一登录{% endblock %}
+{% from "components/macros.html" import icon %}
+{% macro field_errors(field) -%}{% for error in field.errors %}<small class="ba-field__error">{{ error }}</small>{% endfor %}{%- endmacro %}
+{% block title %}{{ system_name }}｜后台｜登录连接{% endblock %}
+{% block admin_title %}外部登录{% endblock %}
 {% block admin_content %}
   <section class="admin-page-heading gateway-page-heading">
     <div>
-      <span class="eyebrow">统一登录</span>
-      <h1>登录连接</h1>
-      <p>这里管理登录所需的连接信息，应用资料和允许权限在身份服务的“接入应用”中维护。</p>
+      <h2 class="ba-heading">登录连接</h2>
+      <p class="ba-lead">这里管理可选的其他登录方式，本站的账号登录不受影响。</p>
     </div>
-    {% if configured and not bound %}<a class="button button--primary" href="{{ url_for('gateway.login', intent='link_admin', next=url_for('admin.gateway_settings')) }}">先绑定当前管理员</a>{% endif %}
+    {% if configured and not bound %}<a class="ba-button" href="{{ url_for('gateway.login', intent='link_admin', next=url_for('admin.gateway_settings')) }}">先绑定当前管理员</a>{% endif %}
   </section>
 
-  <section class="gateway-binding-card card" data-reveal>
-    <span class="soft-icon">◎</span>
+  <section class="gateway-binding-card ba-panel" data-reveal>
+    <span class="ba-stat__icon">{{ icon('person') }}</span>
     <div>
-      <h2>{{ '统一登录已就绪' if enabled else ('等待管理员绑定' if configured else '等待添加连接') }}</h2>
-      <p>{{ ('已绑定身份 ' ~ current_user.gateway_subject ~ '，前台与后台共用同一个登录入口。') if bound else ('连接验证后必须先绑定当前管理员。' if configured else '请先在身份服务中登记应用，再把连接地址和应用凭据填到这里。') }}</p>
+      <h2 class="ba-heading">{{ '外部登录已就绪' if enabled else ('等待管理员绑定' if configured else '还没有添加方式') }}</h2>
+      <p class="ba-lead">{{ ('已绑定外部账号，前台与后台可以使用它。') if bound else ('验证后可以把它绑定到当前管理员。' if configured else '如果需要其他入口，可以在这里添加登录方式。') }}</p>
     </div>
-    <span class="gateway-status-pill {{ 'is-offline' if not enabled }}"><i></i>{{ '运行中' if enabled else '未启用' }}</span>
+    <span class="ba-badge {{ 'ba-badge--ok' if enabled }}">{{ '运行中' if enabled else '未启用' }}</span>
   </section>
 
   <section class="gateway-connection-section" data-gateway-connection-editor data-editor-start-open="{{ 'true' if connection_form.errors else 'false' }}">
     {% if configuration %}
-      <article class="gateway-connection-card card" data-reveal>
+      <article class="gateway-connection-card ba-panel" data-reveal>
         <div class="gateway-connection-card__identity">
-          <span class="gateway-connection-card__icon">◎</span>
-          <div><span class="eyebrow">主要连接</span><h2>统一登录</h2><p>前台与后台共用的登录连接</p></div>
+          <span class="ba-stat__icon">{{ icon('person') }}</span>
+          <div><h2 class="ba-heading">外部账号</h2><p class="ba-lead">可选的前台与后台登录入口</p></div>
         </div>
         <dl class="gateway-connection-card__facts">
-          <div><dt>发行者地址</dt><dd>{{ configuration.issuer }}</dd></div>
-          <div><dt>Client ID</dt><dd>{{ configuration.client_id }}</dd></div>
-          <div><dt>固定回调地址</dt><dd>{{ callback_url }}</dd></div>
+          <div><dt>服务地址</dt><dd>{{ configuration.issuer }}</dd></div>
+          <div><dt>应用编号</dt><dd>{{ configuration.client_id }}</dd></div>
+          <div><dt>返回地址</dt><dd>{{ callback_url }}</dd></div>
         </dl>
-        {% if discovery_error %}<div class="gateway-connection-result is-error"><strong>实时验证未通过</strong><p>{{ discovery_error }}</p></div>{% endif %}
+        {% if discovery_error %}<div class="gateway-connection-result is-error ba-block"><span class="ba-badge ba-badge--alert">实时验证未通过</span><p>{{ discovery_error }}</p></div>{% endif %}
         <footer class="gateway-connection-card__actions">
-          <span class="gateway-status-pill {{ 'is-offline' if discovery_error }}"><i></i>{{ '验证失败' if discovery_error else '连接正常' }}</span>
-          <button class="button button--soft" type="button" data-gateway-editor-toggle aria-expanded="false" aria-controls="gateway-connection-editor-panel">编辑连接</button>
-          <form method="post" action="{{ url_for('admin.gateway_connection_delete') }}" data-confirm="将删除网关连接、管理员绑定和本地网关会话，确定继续吗？">{{ delete_form.hidden_tag() }}<button class="button button--danger" type="submit">删除</button></form>
+          <span class="ba-badge {{ 'ba-badge--alert' if discovery_error else 'ba-badge--ok' }}">{{ '验证失败' if discovery_error else '连接正常' }}</span>
+          <button class="ba-button ba-button--soft" type="button" data-gateway-editor-toggle aria-expanded="false" aria-controls="gateway-connection-editor-panel">编辑连接</button>
+          <form method="post" action="{{ url_for('admin.gateway_connection_delete') }}" data-confirm="将删除这套登录方式和当前绑定，确定继续吗？">{{ delete_form.hidden_tag() }}<button class="ba-button ba-button--danger" type="submit">删除</button></form>
         </footer>
       </article>
     {% else %}
-      <button class="gateway-connection-card gateway-connection-card--empty card" type="button" data-gateway-editor-toggle aria-expanded="false" aria-controls="gateway-connection-editor-panel">
-        <span class="gateway-connection-plus" aria-hidden="true"></span>
-        <span class="gateway-connection-card__empty-copy"><span class="eyebrow">NEW CONNECTION</span><strong>添加网关连接</strong><small>点击卡片展开协议接入面板。</small></span>
-        <span class="gateway-connection-card__empty-facts" aria-hidden="true"><i>发行者地址</i><i>Client ID</i><i>固定回调</i></span>
+      <button class="gateway-connection-card gateway-connection-card--empty ba-panel" type="button" data-gateway-editor-toggle aria-expanded="false" aria-controls="gateway-connection-editor-panel">
+        <span class="ba-stat__icon" aria-hidden="true">{{ icon('plus') }}</span>
+        <span class="gateway-connection-card__empty-copy"><strong>添加登录方式</strong><small>点击卡片展开设置。</small></span>
+        <span class="gateway-connection-card__empty-facts" aria-hidden="true"><i class="ba-badge">服务地址</i><i class="ba-badge">应用编号</i><i class="ba-badge">返回地址</i></span>
       </button>
     {% endif %}
 
     <section id="gateway-connection-editor-panel" class="gateway-connection-editor" data-gateway-editor-panel aria-hidden="true">
-      <div class="gateway-connection-editor__inner card">
+      <div class="gateway-connection-editor__inner ba-panel">
         <header class="gateway-editor-heading">
-          <span class="soft-icon">↗</span>
-          <div><span class="eyebrow">PROTOCOL CREDENTIALS</span><h2>{{ '编辑连接' if configuration else '添加连接' }}</h2></div>
-          <button class="icon-button" type="button" data-gateway-editor-close aria-label="关闭编辑面板">×</button>
+          <span class="ba-stat__icon" aria-hidden="true">{{ icon('arrow') }}</span>
+          <div><h2 class="ba-heading">{{ '编辑连接' if configuration else '添加连接' }}</h2></div>
+          <button class="ba-button ba-button--soft ba-button--icon" type="button" data-gateway-editor-close aria-label="关闭编辑面板">×</button>
         </header>
         <form method="post" action="{{ url_for('admin.gateway_connection_save') }}" class="gateway-connection-form soft-form" novalidate>
           {{ connection_form.hidden_tag() }}
           <div class="gateway-protocol-grid">
-            <label><span>{{ connection_form.issuer.label.text }}</span>{{ connection_form.issuer(autocomplete='url', placeholder='http://127.0.0.1:5100') }}{{ field_errors(connection_form.issuer) }}</label>
-            <label><span>{{ connection_form.client_id.label.text }}</span>{{ connection_form.client_id(autocomplete='off', spellcheck='false') }}{{ field_errors(connection_form.client_id) }}</label>
-            <label><span>{{ connection_form.client_secret.label.text }}</span>{{ connection_form.client_secret(autocomplete='new-password', placeholder=('留空则保留现有密钥' if configuration else '首次创建时必填')) }}{{ field_errors(connection_form.client_secret) }}</label>
-            <div class="gateway-readonly-field"><span>固定回调地址</span><code>{{ callback_url }}</code></div>
+            <label class="ba-field"><span>{{ connection_form.issuer.label.text }}</span>{{ connection_form.issuer(autocomplete='url', placeholder='http://127.0.0.1:5100') }}{{ field_errors(connection_form.issuer) }}</label>
+            <label class="ba-field"><span>{{ connection_form.client_id.label.text }}</span>{{ connection_form.client_id(autocomplete='off', spellcheck='false') }}{{ field_errors(connection_form.client_id) }}</label>
+            <label class="ba-field"><span>{{ connection_form.client_secret.label.text }}</span>{{ connection_form.client_secret(autocomplete='new-password', placeholder=('留空则保留现有密钥' if configuration else '首次创建时必填')) }}{{ field_errors(connection_form.client_secret) }}</label>
+          <div class="gateway-readonly-field ba-field"><span>返回地址</span><code>{{ callback_url }}</code></div>
           </div>
-          <div class="gateway-registration-note"><b>🛡</b><strong>应用资料在身份服务中维护</strong><span>在那里登记应用名称、图标、介绍、服务政策、隐私条款、回调地址和允许权限。</span></div>
-          <div class="gateway-editor-actions"><button class="button button--soft" type="button" data-gateway-editor-close>取消</button><button class="button button--primary" type="submit">保存并验证连接</button></div>
+          <div class="gateway-registration-note ba-block"><strong>应用资料在外部服务中维护</strong><span>这里仅保存连接所需的信息，本站账号仍然可以直接使用。</span></div>
+          <div class="gateway-editor-actions"><button class="ba-button ba-button--soft" type="button" data-gateway-editor-close>取消</button><button class="ba-button" type="submit">保存并验证连接</button></div>
         </form>
       </div>
     </section>
   </section>
 
   {% if configured %}
-    <section class="gateway-binding-card gateway-binding-card--action card" data-reveal>
-      <span class="soft-icon">◎</span>
-      <div><h2>{{ '管理员已经绑定' if bound else '最后一步：绑定管理员' }}</h2><p>{{ '重新绑定时可先解除当前身份。' if bound else '只有完成绑定后，前台登录与管理员识别才会开放。' }}</p></div>
+    <section class="gateway-binding-card gateway-binding-card--action ba-panel" data-reveal>
+      <span class="ba-stat__icon">{{ icon('person') }}</span>
+      <div><h2 class="ba-heading">{{ '管理员已经绑定' if bound else '绑定当前管理员' }}</h2><p class="ba-lead">{{ '重新绑定时可先解除当前账号。' if bound else '绑定后，管理员也可以使用这套登录方式。' }}</p></div>
       {% if bound %}
-        <form method="post" action="{{ url_for('admin.gateway_unlink') }}" data-confirm="解除后统一登录与管理员识别会关闭，确定继续吗？">{{ delete_form.hidden_tag() }}<button class="button button--soft" type="submit">解除绑定</button></form>
+        <form method="post" action="{{ url_for('admin.gateway_unlink') }}" data-confirm="解除后这套登录方式不会再识别当前管理员，确定继续吗？">{{ delete_form.hidden_tag() }}<button class="ba-button ba-button--soft" type="submit">解除绑定</button></form>
       {% else %}
-        <a class="button button--primary" href="{{ url_for('gateway.login', intent='link_admin', next=url_for('admin.gateway_settings')) }}">绑定当前管理员</a>
+        <a class="ba-button" href="{{ url_for('gateway.login', intent='link_admin', next=url_for('admin.gateway_settings')) }}">绑定当前管理员</a>
       {% endif %}
     </section>
   {% endif %}

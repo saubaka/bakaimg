@@ -1,0 +1,326 @@
+/*
+ * 项目基础样式。
+ * 颜色、圆角、阴影、间距全部取自 design/bakamail-admin-v5/tokens.css，
+ * 组件用 design/bakamail-admin-v5/components/bundle.css（ba- 前缀），这里不重写它们。
+ * 页面没有边框、分隔线和轮廓；唯一保留的线是键盘聚焦的 2px 轮廓。
+ */
+:root {
+  color-scheme: light;
+  --z-header: 40;
+  --z-backdrop: 70;
+  --z-drawer: 72;
+  --z-toast: 90;
+  --z-dialog: 100;
+  --duration-hover: 170ms;
+  --duration-card: 220ms;
+  --duration-enter: 480ms;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html { min-width: 0; min-height: 100%; background: var(--milk); }
+
+body {
+  min-width: 0;
+  min-height: 100vh;
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--milk);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.65;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+body.drawer-open { overflow: hidden; }
+
+button, input, textarea, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; }
+img { max-width: 100%; }
+h1, h2, h3, h4, p { margin-top: 0; }
+h1, h2, h3, h4 { color: var(--ink); line-height: 1.3; }
+small { font-size: 12px; }
+strong, b { color: inherit; }
+fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+legend { padding: 0; }
+dl, dd { margin: 0; }
+progress { appearance: none; }
+
+.icon {
+  display: block;
+  width: 1.25em;
+  height: 1.25em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: fixed;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 10000;
+  padding: 10px var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--sky-700);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+}
+.skip-link:focus { transform: translateY(0); }
+
+/* 页面外框 */
+
+/* 通用小工具 */
+.ba-button.u-compact { min-height: 36px; padding: 0 var(--space-4); font-size: 13px; }
+.ba-button.u-full { width: 100%; }
+a.ba-button, label.ba-button { text-decoration: none; }
+.ba-lead { max-width: 62ch; }
+.muted { color: var(--ink-soft); }
+
+/* 带自绘箭头的原生选择框（设计系统的 ba-select 是按钮外观，原生 select 另外包一层，属于新增） */
+.u-select { position: relative; display: block; min-width: 0; }
+.u-select select.ba-input { appearance: none; padding-right: 44px; cursor: pointer; }
+.u-select::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 20px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  border-radius: 1px;
+  pointer-events: none;
+  transform: rotate(45deg) translateY(-70%);
+}
+
+/* 多行输入、文件输入 */
+textarea.ba-input { height: auto; min-height: 112px; padding: 14px 18px; line-height: 1.6; resize: vertical; }
+input.ba-input[type="file"] { padding: 12px 18px; height: auto; }
+.ba-input[disabled] { opacity: .6; cursor: not-allowed; }
+.ba-input[readonly] { cursor: text; }
+.ba-field > small { color: var(--ink-soft); font-weight: 400; }
+.ba-field__error:empty { display: none; }
+
+/* 复选框：淡蓝的整行，选中后更深一点；原生勾选框只改颜色 */
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 46px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--sky-050);
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--duration-hover) var(--ease);
+}
+.check-field:hover { background: var(--sky-100); }
+.check-field:has(input:checked) { background: var(--sky-200); color: var(--sky-700); font-weight: 600; }
+.check-field input[type="checkbox"], .choice-card input[type="checkbox"], .album-choice input[type="checkbox"] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--sky-700) 16%, transparent);
+  cursor: pointer;
+  transition: background var(--duration-hover) var(--ease);
+}
+.check-field input[type="checkbox"]:checked, .choice-card input[type="checkbox"]:checked, .album-choice input[type="checkbox"]:checked { background: var(--sky-700); }
+.check-field input[type="checkbox"]:checked::after, .choice-card input[type="checkbox"]:checked::after, .album-choice input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  width: 5px;
+  height: 10px;
+  border-right: 2px solid var(--surface);
+  border-bottom: 2px solid var(--surface);
+  transform: rotate(45deg);
+}
+.check-field input[type="checkbox"]:disabled { opacity: .55; cursor: not-allowed; }
+.transition-choice input[type="radio"], .dialog-style-choice input[type="radio"], .dialog-shadow-options input[type="radio"] {
+  appearance: none;
+  position: relative;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 2px 4px color-mix(in srgb, var(--sky-700) 16%, transparent);
+  cursor: pointer;
+  transition: background var(--duration-hover) var(--ease);
+}
+.transition-choice input[type="radio"]:checked, .dialog-style-choice input[type="radio"]:checked, .dialog-shadow-options input[type="radio"]:checked { background: var(--sky-700); }
+.transition-choice input[type="radio"]:checked::after, .dialog-style-choice input[type="radio"]:checked::after, .dialog-shadow-options input[type="radio"]:checked::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: var(--surface); }
+.role-fieldset { display: grid; gap: var(--space-3); }
+.role-fieldset legend { margin-bottom: var(--space-2); font-size: 13px; font-weight: 600; }
+.role-fieldset > .check-field { display: flex; }
+.role-fieldset:has(.check-field) { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.role-fieldset legend, .role-fieldset > small { grid-column: 1 / -1; }
+
+/* 开关：设计系统只给了外观，这里让它跟着原生复选框走，属于新增 */
+.u-switch-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.u-switch-input:checked + .ba-switch { background: var(--mint-300); }
+.u-switch-input:checked + .ba-switch::after { transform: translateX(20px); }
+.u-switch-input:focus-visible + .ba-switch { outline: 2px solid var(--sky-700); outline-offset: 2px; }
+.setting-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: var(--sky-050);
+  cursor: pointer;
+}
+.setting-toggle > span:last-child { display: grid; gap: 2px; }
+.setting-toggle small { color: var(--ink-soft); }
+
+/* 表单布局 */
+.soft-form { display: grid; gap: var(--space-4); }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.form-span { grid-column: 1 / -1; }
+.stack-form { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
+.search-form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-5); }
+.search-form > .ba-input { flex: 1 1 240px; width: auto; }
+.search-form > .u-select { flex: 0 1 200px; }
+.button-row, .hero-actions, .stack-actions, .image-actions, .chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.image-actions form { margin: 0; }
+
+.copy-field > span:last-child { display: flex; gap: var(--space-2); align-items: center; }
+.copy-field .ba-input { flex: 1; width: auto; }
+
+/* 图片的固定占位：加载前后尺寸不变 */
+.media-frame { position: relative; display: block; overflow: hidden; border-radius: var(--radius-control); background: var(--sky-100); }
+.media-frame img { display: block; width: 100%; height: auto; opacity: 0; transition: opacity var(--duration-card) var(--ease); }
+.media-frame.is-ready img { opacity: 1; }
+.media-frame__link { display: block; color: inherit; }
+.media-frame__error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  background: var(--sky-100);
+  color: var(--ink-soft);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* 列表卡片：设计系统的“列表卡片”尺寸（28 圆角） */
+.card {
+  min-width: 0;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--duration-card) var(--ease), box-shadow var(--duration-card) var(--ease);
+}
+@media (hover: hover) and (pointer: fine) {
+  .discovery-tile:hover, .image-card:hover, .album-card:hover, .feature-card:hover { box-shadow: var(--shadow-float); transform: translateY(-2px); }
+}
+
+/* 入场：只做透明度和位移，结束后不留变换 */
+.is-motion-pending { opacity: 0; }
+
+/* 过渡遮罩：纯色淡入淡出，颜色取后台设置的中间色 */
+html::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: var(--route-color-middle, var(--milk));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+html.is-page-leaving body { pointer-events: none; }
+html.is-page-leaving::before { visibility: visible; animation: route-cover var(--route-cover, 200ms) var(--ease) both; }
+html.is-page-entering::before { visibility: visible; animation: route-reveal var(--route-reveal, 330ms) var(--ease) var(--route-reveal-delay, 55ms) both; }
+html[data-page-transition="stretch"] { --route-cover: var(--route-stretch-cover, 420ms); --route-reveal: var(--route-stretch-reveal, 620ms); }
+html[data-page-transition="fade"] { --route-cover: var(--route-fade-cover, 190ms); --route-reveal: var(--route-fade-reveal, 330ms); }
+html[data-page-transition="zoom-blur"] { --route-cover: var(--route-focus-cover, 300ms); --route-reveal: var(--route-focus-reveal, 500ms); }
+html.is-page-entering #main-content, html.is-page-entering .admin-main {
+  animation: route-content var(--route-reveal, 330ms) var(--ease) var(--route-content-delay, 115ms) backwards;
+}
+html[data-page-transition="stretch"].is-page-entering #main-content,
+html[data-page-transition="stretch"].is-page-entering .admin-main { animation-name: route-content-slide; }
+@keyframes route-cover { from { opacity: 0; } to { opacity: 1; } }
+@keyframes route-reveal { from { opacity: 1; } to { opacity: 0; } }
+@keyframes route-content { from { opacity: 0; transform: translate3d(0, 8px, 0); } to { opacity: 1; transform: none; } }
+@keyframes route-content-slide { from { opacity: 0; transform: translate3d(-18px, 0, 0); } to { opacity: 1; transform: none; } }
+
+/* 减少动态效果或低性能：关闭所有动画 */
+@media (prefers-reduced-motion: reduce) {
+  html::before, html::after { display: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+html[data-motion="reduce"]::before, html[data-performance="low"]::before { display: none !important; }
+html[data-motion="reduce"] *, html[data-motion="reduce"] *::before, html[data-motion="reduce"] *::after,
+html[data-performance="low"] *, html[data-performance="low"] *::before, html[data-performance="low"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (max-width: 760px) {
+  .ba-input, .ba-select, .ba-field .ba-input { font-size: 16px; }
+  .form-grid { grid-template-columns: 1fr; }
+}
+
+/* 空状态插画的颜色（内容安全策略不允许行内样式，所以用类名） */
+.ba-empty .art-sky-200 { fill: var(--sky-200); }
+.ba-empty .art-sky-100 { fill: var(--sky-100); }
+.ba-empty .art-butter-300 { fill: var(--butter-300); }
+.ba-empty .art-peach-300 { fill: var(--peach-300); }
+.ba-empty .art-ink { fill: var(--ink); }
+.ba-empty .art-smile { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; }
+
+/* 自绘的小按钮和菜单项：统一的悬停与按下反馈（设计系统的 ba-button 自带，这里补其余的） */
+.password-control__toggle, .nav-menu-button, .identity-menu__trigger, .ba-toast > button,
+.drawer__links a, .related-list a, .mobile-bottom-nav [data-mobile-nav-item], .site-nav__links a,
+.discover-menu__panel button, .upload-visibility__menu button, .identity-menu__panel a, .identity-menu__panel button,
+.entry-card, .ba-rail__link {
+  transition: background var(--duration-hover) var(--ease), color var(--duration-hover) var(--ease), box-shadow var(--duration-card) var(--ease), transform var(--duration-hover) var(--spring);
+}
+.password-control__toggle:active, .nav-menu-button:active, .identity-menu__trigger:active, .ba-toast > button:active,
+.drawer__links a:active, .related-list a:active, .mobile-bottom-nav [data-mobile-nav-item]:active, .site-nav__links a:active,
+.discover-menu__panel button:active, .upload-visibility__menu button:active, .identity-menu__panel a:active,
+.identity-menu__panel button:active, .ba-rail__link:active { transform: translateY(1px); }
+.entry-card:active { transform: translateY(0); }
+.password-control__toggle:active { transform: translateY(calc(-50% + 1px)); }
+.check-field:active, .setting-toggle:active, .choice-card:active, .transition-choice:active, .dialog-style-choice:active { transform: translateY(1px); }
+.check-field, .setting-toggle, .choice-card, .transition-choice, .dialog-style-choice { transition: background var(--duration-hover) var(--ease), box-shadow var(--duration-card) var(--ease), transform var(--duration-hover) var(--spring); }
+.setting-toggle:hover { background: var(--sky-100); }
+a, .site-brand, a.ba-tabs__option { transition: color var(--duration-hover) var(--ease), opacity var(--duration-hover) var(--ease), background var(--duration-hover) var(--ease); }
+.site-brand:hover { opacity: .8; }
+.ba-select { transition: background var(--duration-hover) var(--ease), box-shadow var(--duration-hover) var(--ease); }
+.ba-select:hover { background: var(--sky-200); }
+.ba-select[aria-expanded="true"] { background: var(--sky-200); }
+a.ba-tabs__option:hover { color: var(--ink); }
+.ba-stat__body strong { overflow: hidden; font-size: clamp(24px, 2.1vw, 32px); text-overflow: ellipsis; white-space: nowrap; }

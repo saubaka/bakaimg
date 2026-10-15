@@ -1,2 +1,8 @@
-# Auto detect text files and perform LF normalization
+# Auto detect text files and keep platform launchers in their native line endings.
 * text=auto
+*.sh text eol=lf
+bakaimg-macos text eol=lf
+*.bat text eol=crlf
+*.exe binary
+*.whl binary
+*.command text eol=lf

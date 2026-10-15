@@ -1,0 +1,26 @@
+<!-- @dsCard height=300 -->
+<!doctype html><meta charset="utf-8"><style>
+html,body{margin:0}body{background:var(--milk)}
+.cover{position:relative;width:960px;height:300px;overflow:hidden;background:var(--milk);font-family:var(--font-sans)}
+.cover svg{position:absolute;inset:0}
+.cover .name{position:absolute;left:40px;bottom:46px;width:440px}
+.cover h1{margin:0;font-size:84px;line-height:.95;font-weight:700;letter-spacing:-.04em;color:var(--ink)}
+.cover p{margin:14px 0 0;font-size:14px;line-height:1.5;color:var(--ink-soft)}
+.sky{fill:var(--sky-200)}.white{fill:var(--surface)}.ink{fill:var(--ink)}.peach{fill:var(--peach-300)}.mint{fill:var(--mint-300)}.butter{fill:var(--butter-300)}.lilac{fill:var(--lilac-300)}.pink{fill:var(--pink-300)}
+</style>
+<!--
+blocks: sky-200 slab 232x200 (radius-panel 36, tilted -3deg), surface card 220x112 (radius-card 28, tilted 2deg), peach-300 disc 96, mint-300 pill 120x48
+arrangement: two tilted panes overlapping like the logo's two windows, discs and a pill tucked under them; the white card bleeds past the right edge
+pattern: soft discs and pills only (the brand is soft and friendly): two pink-300 and lilac-300 pills inside the sky slab, gap 8 (space-2); no outlines anywhere
+steps: gaps 16 (space-4); radii 36 / 28 / pill from the scale
+-->
+<div class="cover">
+<svg viewBox="0 0 960 300" width="960" height="300" aria-hidden="true">
+<g transform="rotate(-3 596 140)"><rect class="sky" x="488" y="40" width="232" height="200" rx="36"/>
+<rect class="white" x="520" y="76" width="168" height="22" rx="11"/><rect class="pink" x="520" y="112" width="104" height="22" rx="11"/><rect class="lilac" x="632" y="112" width="56" height="22" rx="11"/><rect class="white" x="520" y="148" width="136" height="22" rx="11"/></g>
+<g transform="rotate(2 846 100)"><rect class="white" x="736" y="34" width="244" height="132" rx="28"/><circle class="peach" cx="786" cy="100" r="26"/><rect class="sky" x="826" y="78" width="120" height="16" rx="8"/><rect class="sky" x="826" y="106" width="84" height="16" rx="8"/></g>
+<circle class="peach" cx="796" cy="226" r="48"/>
+<rect class="mint" x="860" y="190" width="120" height="48" rx="24"/>
+</svg>
+<div class="name"><h1>BakaMail<br>Admin</h1><p>浅浅的颜色、软软的圆角，可爱治愈的邮局后台</p></div>
+</div>

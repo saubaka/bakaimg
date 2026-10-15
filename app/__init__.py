@@ -8,7 +8,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from flask import Flask, g, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, g, jsonify, render_template, request
 from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -17,6 +17,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import CONFIGS, BaseConfig
 from app.extensions import csrf, db, login_manager, migrate
+from app.services import labels
 
 
 @event.listens_for(Engine, "connect")
@@ -143,7 +144,7 @@ def _validate_production_config(app: Flask) -> None:
 
 
 def _register_hooks(app: Flask) -> None:
-    from app.models import User, utc_now
+    from app.models import User
     from app.services.auth import validate_browser_session
 
     @login_manager.user_loader
@@ -152,34 +153,12 @@ def _register_hooks(app: Flask) -> None:
 
     @app.before_request
     def begin_request() -> None:
-        from flask_login import logout_user
-
-        from app.services.auth import current_session
-        from app.services.gateway import current_gateway_session, gateway_is_enabled
+        from app.services.gateway import current_gateway_session
 
         supplied = request.headers.get("X-Request-ID", "")
         g.request_id = supplied[:64] if supplied.isascii() and supplied.isalnum() else uuid4().hex
         validate_browser_session()
         g.gateway_session = current_gateway_session(validate_remote=True)
-        if (
-            current_user.is_authenticated
-            and gateway_is_enabled()
-            and not session.get("local_recovery")
-            and (g.gateway_session is None or g.gateway_session.linked_user_id != current_user.id)
-        ):
-            local_session = current_session()
-            if local_session is not None:
-                local_session.revoked_at = utc_now()
-                db.session.commit()
-            logout_user()
-            session.clear()
-            return redirect(
-                url_for(
-                    "gateway.login",
-                    intent=("admin" if request.path.startswith("/admin/") else "frontend"),
-                    next=request.full_path if request.query_string else request.path,
-                )
-            )
         maintenance_response = _maintenance_response()
         if maintenance_response is not None:
             return maintenance_response
@@ -217,6 +196,18 @@ def _register_context(app: Flask) -> None:
                 return f"{amount:.0f} {unit}" if unit == "B" else f"{amount:.1f} {unit}"
             amount /= 1024
         return f"{amount:.1f} TiB"
+
+    # 导入的宏看不到上下文变量，图标等静态文件的版本号走全局变量。
+    app.jinja_env.globals["app_version"] = app.config["APP_VERSION"]
+    app.jinja_env.filters.update(
+        audit_action=labels.audit_action,
+        login_reason=labels.login_reason,
+        operation_action=labels.operation_action,
+        operation_status=labels.operation_status,
+        scope_labels=labels.scope_labels,
+        role_name=labels.role_name,
+        health=labels.health,
+    )
 
     @app.context_processor
     def inject_site_context() -> dict[str, object]:

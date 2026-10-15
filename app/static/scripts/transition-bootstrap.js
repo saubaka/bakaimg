@@ -2,6 +2,7 @@
   const key = "cloudnest-route-transition";
   const singleNavigationKey = "cloudnest-single-navigation";
   const root = document.documentElement;
+  root.classList.add("has-script");
   const duration = Math.max(300, Math.min(2400, Number.parseInt(root.dataset.transitionDuration, 10) || 720));
   const safeColor = (value, fallback) => /^#[0-9a-f]{6}$/i.test(value || "") ? value : fallback;
   const timing = {

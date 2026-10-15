@@ -1,4 +1,4 @@
-"""Cloudgate-only login, callback, avatar and logout routes."""
+"""Optional external identity, callback, avatar and logout routes."""
 
 from __future__ import annotations
 
@@ -120,7 +120,7 @@ def _local_user_for_gateway(identity) -> User:  # type: ignore[no-untyped-def]
         "gateway.user.provision",
         "user",
         str(user.id),
-        f"从统一登录身份创建本地图片账号 {identity.preferred_username}",
+        f"从外部账号创建本地图片账号 {identity.preferred_username}",
     )
     return user
 
@@ -147,7 +147,7 @@ def _establish_local_session(user: User, identity) -> None:  # type: ignore[no-u
     db.session.add(log)
 
 
-@gateway_bp.get("/login/")
+@gateway_bp.get("/gateway/login/")
 def login():
     intent = request.args.get("intent", "frontend")
     if intent not in {"frontend", "admin", "link_admin"}:
@@ -173,7 +173,7 @@ def login():
     )
 
 
-@gateway_bp.get("/login/continue/")
+@gateway_bp.get("/gateway/login/continue/")
 def login_continue():
     intent = request.args.get("intent", "frontend")
     if intent not in {"frontend", "admin", "link_admin"}:
@@ -229,7 +229,7 @@ def callback():
             "gateway.identity.link",
             "user",
             str(current_user.id),
-            f"绑定统一登录账号 {identity.preferred_username}",
+            f"绑定外部登录账号 {identity.preferred_username}",
         )
         db.session.commit()
         flash("登录账号已经与当前管理员绑定。", "success")
@@ -311,7 +311,7 @@ def avatar():
     return response
 
 
-@gateway_bp.post("/logout/")
+@gateway_bp.post("/gateway/logout/")
 def logout():
     identity = g.get("gateway_session")
     local_session = current_session() if current_user.is_authenticated else None

@@ -1,13 +1,13 @@
+{% from 'components/media.html' import picture, visibility %}
+{% from 'components/macros.html' import empty_art %}
 {% for image in images %}
-  <article class="card image-card" data-library-item>
-    <a class="image-preview" href="{{ url_for('images.detail', public_id=image.public_id) }}"><img src="{{ url_for('images.media', public_id=image.public_id, variant='thumbnail') }}" alt="{{ image.alt_text or image.title }}" width="{{ image.variant('thumbnail').width }}" height="{{ image.variant('thumbnail').height }}" loading="lazy" decoding="async"></a>
-    <div class="image-card-body"><div><strong>{{ image.title or image.original_name }}</strong><small>{{ image.width }}×{{ image.height }} · {{ format_bytes(image.byte_size) }}</small></div><span class="status-tag {{ 'status-tag--muted' if image.visibility == 'private' }}">{{ {'private': '仅自己', 'unlisted': '通过链接', 'public': '公开'}[image.visibility] }}</span></div>
+  <article class="tile image-tile" data-library-item data-reveal>
+    {{ picture(image, href=url_for('images.detail', public_id=image.public_id), class_name='image-preview') }}
+    <div class="tile__body"><strong>{{ image.title or image.original_name }}</strong><span class="tile__meta">{{ {'private': '仅自己', 'unlisted': '通过链接', 'public': '公开'}[image.visibility] }} · {{ image.width }}×{{ image.height }} · {{ format_bytes(image.byte_size) }}</span></div>
     {% if status == 'trashed' %}
-      <div class="image-actions"><form method="post" action="{{ url_for('images.restore', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="button button--soft button--small">恢复</button></form><form method="post" data-confirm="永久删除后无法恢复，确定继续吗？" action="{{ url_for('images.purge', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="button button--danger button--small">永久删除</button></form></div>
-    {% else %}
-      <a class="button button--soft button--full" href="{{ url_for('images.detail', public_id=image.public_id) }}">查看与管理</a>
+      <div class="tile__actions"><form method="post" action="{{ url_for('images.restore', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--soft u-compact">恢复</button></form><form method="post" data-confirm="永久删除后无法恢复，确定继续吗？" action="{{ url_for('images.purge', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="ba-button ba-button--danger u-compact">永久删除</button></form></div>
     {% endif %}
   </article>
 {% else %}
-  {% if page == 1 %}<div class="card empty-cloud"><span>{{ '✓' if status == 'trashed' else '▧' }}</span><h2>{{ '回收站很干净' if status == 'trashed' else '这里还没有图片' }}</h2><p>{{ '删除的图片会在这里等待恢复或永久清理。' if status == 'trashed' else '上传第一张图片，开始整理自己的图库。' }}</p>{% if status != 'trashed' %}<a class="button button--primary" href="{{ url_for('images.upload') }}">上传第一张</a>{% endif %}</div>{% endif %}
+  {% if page == 1 %}<div class="ba-empty">{{ empty_art() }}<p>{{ '回收站很干净，删除的图片会在这里等待恢复或永久清理。' if status == 'trashed' else ('没有已隐藏的图片，被隐藏的图片会显示在这里。' if status == 'quarantined' else '这里还没有图片，上传第一张图片，开始整理自己的图库。') }}</p>{% if status == 'active' %}<a class="ba-button" href="{{ url_for('images.upload') }}">上传第一张</a>{% endif %}</div>{% endif %}
 {% endfor %}

@@ -1,0 +1,139 @@
+/* BakaMail Admin v3：纯色的粉彩配色，不画线。颜色、圆角、阴影来自 tokens.css，类名以 ba- 开头。 */
+:root { --ease: cubic-bezier(.2, .78, .22, 1); --spring: cubic-bezier(.2, .86, .24, 1.08); }
+.ba-root, .ba-root * { box-sizing: border-box; }
+.ba-root { font-family: var(--font-sans); font-size: 15px; line-height: 1.65; color: var(--ink); }
+/* 键盘聚焦：唯一保留的轮廓，实色、够醒目 */
+.ba-root :focus-visible { outline: 2px solid var(--sky-700); outline-offset: 2px; }
+
+/* 容器 */
+.ba-panel { position: relative; padding: var(--space-6); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-card); }
+.ba-tag { display: inline-block; margin: 0 0 10px; padding: 3px 12px; border-radius: var(--radius-pill); background: var(--lilac-100); color: var(--lilac-700); font-size: 12px; font-weight: 600; letter-spacing: .02em; line-height: 1.4; }
+.ba-title { margin: 0 0 8px; font-size: 28px; font-weight: 700; line-height: 1.3; letter-spacing: -.02em; }
+.ba-heading { margin: 0 0 6px; font-size: 20px; font-weight: 700; line-height: 1.4; }
+.ba-lead { margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.7; }
+.ba-block { margin-top: var(--space-5); padding: 18px 20px; border-radius: var(--radius-card); background: var(--sky-050); }
+
+/* 按钮：实心粉彩胶囊，底部有一个实色台阶，按下去台阶消失 */
+.ba-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 46px; padding: 0 24px; border: 0; border-radius: var(--radius-pill); background: var(--sky-200); box-shadow: var(--shadow-ledge); color: var(--ink); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; transition: transform 160ms var(--spring), background 160ms var(--ease), box-shadow 160ms var(--ease); }
+.ba-button:hover { transform: translateY(-1px); background: var(--sky-300); }
+.ba-button:active { transform: translateY(3px); box-shadow: 0 0 0 transparent; }
+.ba-button--soft { background: var(--sky-100); box-shadow: var(--shadow-ledge-soft); }
+.ba-button--soft:hover { background: var(--sky-200); }
+.ba-button--danger { background: var(--pink-100); box-shadow: var(--shadow-ledge-danger); color: var(--pink-700); }
+.ba-button--danger:hover { background: var(--pink-300); }
+.ba-button--icon { width: 38px; min-height: 38px; padding: 0; font-size: 18px; line-height: 1; }
+.ba-button:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* 表单：填色的输入框，没有边框 */
+.ba-field { display: grid; gap: 7px; min-width: 0; font-size: 13px; font-weight: 600; line-height: 24px; }
+.ba-input { width: 100%; min-width: 0; height: 50px; padding: 0 18px; border: 0; border-radius: var(--radius-control); background: var(--sky-100); color: var(--ink); font: inherit; font-size: 13px; font-weight: 400; transition: background 180ms ease; }
+.ba-input::placeholder { color: var(--ink-soft); }
+.ba-input:hover { background: var(--sky-200); }
+.ba-input:focus { background: var(--surface); box-shadow: 0 0 0 3px var(--sky-200); outline: none; }
+.ba-input:focus-visible { outline: 2px solid var(--sky-700); outline-offset: 2px; }
+.ba-input[aria-invalid="true"] { background: var(--pink-100); }
+.ba-field__error { margin: 0; color: var(--pink-700); font-size: 12px; font-weight: 400; line-height: 1.6; }
+.ba-select { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; height: 50px; padding: 0 18px; border: 0; border-radius: var(--radius-control); background: var(--sky-100); color: var(--ink); font: inherit; font-size: 13px; font-weight: 400; text-align: left; cursor: pointer; }
+.ba-select::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); border-radius: 1px; transform: rotate(45deg) translateY(-2px); }
+.ba-switch { position: relative; display: inline-block; width: 50px; height: 30px; border-radius: var(--radius-pill); background: var(--sky-200); transition: background 200ms ease; }
+.ba-switch::after { content: ""; position: absolute; top: 4px; left: 4px; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); box-shadow: 0 2px 4px rgba(110, 150, 215, .28); transition: transform 280ms var(--spring); }
+.ba-switch.is-on { background: var(--mint-300); }
+.ba-switch.is-on::after { transform: translateX(20px); }
+
+/* 徽标：一种意思一种粉彩 */
+.ba-badge { display: inline-flex; align-items: center; min-height: 26px; padding: 2px 12px; border-radius: var(--radius-pill); background: var(--sky-200); color: var(--sky-700); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ba-badge--ok { background: var(--mint-100); color: var(--mint-700); }
+.ba-badge--warn { background: var(--peach-100); color: var(--peach-700); }
+.ba-badge--alert { background: var(--pink-100); color: var(--pink-700); }
+.ba-badge--new { background: var(--butter-100); color: var(--butter-700); }
+.ba-badge--role { background: var(--lilac-100); color: var(--lilac-700); }
+.ba-count { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; background: var(--sky-100); color: var(--sky-700); font-size: 11px; font-weight: 700; line-height: 22px; font-variant-numeric: tabular-nums; }
+.ba-count--alert { background: var(--pink-100); color: var(--pink-700); }
+
+/* 统计卡片：每张一种粉彩底，图标放在白色气泡里，悬停时气泡弹一下 */
+.ba-stat { display: flex; align-items: center; gap: 16px; min-width: 0; min-height: 116px; padding: 20px; border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--shadow-card); }
+.ba-stat--peach .ba-stat__icon { background: var(--peach-100); } .ba-stat--mint .ba-stat__icon { background: var(--mint-100); } .ba-stat--butter .ba-stat__icon { background: var(--butter-100); } .ba-stat--lilac .ba-stat__icon { background: var(--lilac-100); }
+.ba-stat__icon { display: grid; place-items: center; flex: 0 0 48px; width: 48px; height: 48px; border-radius: 50%; background: var(--sky-100); color: var(--sky-700); transition: transform 320ms var(--spring); }
+.ba-stat--peach .ba-stat__icon { color: var(--peach-700); } .ba-stat--mint .ba-stat__icon { color: var(--mint-700); } .ba-stat--butter .ba-stat__icon { color: var(--butter-700); } .ba-stat--lilac .ba-stat__icon { color: var(--lilac-700); }
+.ba-stat:hover .ba-stat__icon { transform: scale(1.12) rotate(-6deg); }
+.ba-stat__icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ba-stat__body { display: grid; min-width: 0; gap: 2px; }
+.ba-stat small, .ba-stat__hint { color: var(--ink-soft); font-size: 12px; }
+.ba-stat strong { font-size: 32px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ba-stat.is-alert { background: var(--pink-100); box-shadow: none; }
+.ba-stat.is-alert .ba-stat__icon { background: var(--surface); }
+.ba-stat.is-alert .ba-stat__icon { color: var(--pink-700); }
+.ba-stat.is-unavailable strong { color: var(--ink-soft); font-size: 20px; font-weight: 600; }
+
+/* 侧栏：白色大圆角卡片，当前项是一颗淡蓝色的实心胶囊 */
+.ba-rail { display: flex; flex-direction: column; gap: 10px; width: 244px; padding: 16px; border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-card); }
+.ba-rail__brand { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 4px; font-size: 16px; font-weight: 700; }
+.ba-rail__mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 14px; background: var(--sky-200); color: var(--sky-700); transform: rotate(-4deg); }
+.ba-rail__mark svg, .ba-rail__link svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ba-rail__label { margin: 8px 0 2px; padding: 0 14px; color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+.ba-rail__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.ba-rail__link { display: flex; align-items: center; gap: 12px; width: 100%; height: 44px; padding: 0 16px; border-radius: var(--radius-pill); color: var(--ink-soft); font-size: 13px; font-weight: 500; text-decoration: none; transition: background 160ms ease, color 160ms ease; }
+.ba-rail__link:hover { background: var(--sky-050); color: var(--ink); }
+.ba-rail__link.is-current { background: var(--sky-200); color: var(--sky-700); font-weight: 600; }
+.ba-rail__link .ba-count { margin-left: auto; }
+.ba-rail__profile { display: flex; align-items: center; gap: 10px; margin-top: 4px; padding: 12px; border-radius: var(--radius-card); background: var(--sky-050); }
+.ba-avatar { display: grid; place-items: center; flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; background: var(--peach-300); color: var(--peach-700); font-size: 14px; font-weight: 700; }
+
+/* 分段选择：淡蓝的轨道，白色的滑块 */
+.ba-tabs { position: relative; display: inline-grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); padding: 4px; border-radius: var(--radius-pill); background: var(--sky-100); isolation: isolate; }
+.ba-tabs__indicator { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / var(--n, 3)); border-radius: var(--radius-pill); background: var(--surface); box-shadow: 0 2px 6px rgba(110, 150, 215, .18); transform: translate3d(calc(var(--i, 0) * 100%), 0, 0); transition: transform 360ms var(--spring); }
+.ba-tabs__option { position: relative; z-index: 1; min-width: 70px; min-height: 36px; padding: 0 16px; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--ink-soft); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+.ba-tabs__option.is-active { color: var(--ink); font-weight: 600; }
+
+/* 趋势图：用浅蓝的色带代替网格线 */
+.ba-trend__legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+.ba-trend__chip { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 14px; border-radius: var(--radius-pill); background: var(--sky-100); color: var(--ink); font-size: 12px; }
+.ba-trend__chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.ba-trend__chip b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ba-trend__band { fill: var(--sky-050); }
+.ba-trend__text { fill: var(--ink-soft); font-size: 11px; font-variant-numeric: tabular-nums; }
+.ba-trend__line { fill: none; stroke: var(--c); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.ba-trend__area { fill: var(--c); opacity: .14; stroke: none; }
+
+/* 表格：间隔行用淡蓝，没有横线，悬停整行变深一点，头像弹一下 */
+.ba-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 13px; }
+.ba-table th { padding: 0 16px 6px; color: var(--ink-soft); font-size: 12px; font-weight: 600; text-align: left; }
+.ba-table td { padding: 12px 16px; vertical-align: middle; transition: background 160ms ease; }
+.ba-table tbody tr:nth-child(odd) td { background: var(--sky-050); }
+.ba-table tbody tr:hover td { background: var(--sky-100); }
+.ba-table td:first-child { border-radius: var(--radius-control) 0 0 var(--radius-control); }
+.ba-table td:last-child { border-radius: 0 var(--radius-control) var(--radius-control) 0; }
+.ba-table__who { display: flex; align-items: center; gap: 12px; }
+.ba-table__who small { display: block; color: var(--ink-soft); font-size: 12px; }
+.ba-table .ba-avatar { transition: transform 280ms var(--spring); }
+.ba-table tbody tr:hover .ba-avatar { transform: scale(1.1) rotate(-6deg); }
+
+/* 弹窗 */
+.ba-dialog { width: min(420px, 100%); padding: 26px; border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-float); }
+.ba-dialog__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ba-dialog__head h2 { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.4; }
+.ba-dialog__body { margin: 14px 0 18px; color: var(--ink-soft); font-size: 13px; line-height: 1.7; }
+.ba-dialog__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.ba-dialog--danger .ba-tag { background: var(--pink-100); color: var(--pink-700); }
+
+/* 通知胶囊 */
+.ba-toast { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px 0 18px; border-radius: var(--radius-pill); background: var(--surface); box-shadow: var(--shadow-float); font-size: 13px; font-weight: 500; }
+.ba-toast i { width: 12px; height: 12px; border-radius: 50%; background: var(--sky-300); }
+.ba-toast--ok i { background: var(--mint-300); }
+.ba-toast--error i { background: var(--pink-300); }
+.ba-toast button { display: grid; place-items: center; width: 32px; height: 32px; border: 0; border-radius: 50%; background: var(--sky-100); color: var(--ink-soft); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
+
+/* 空状态：实心的信封和小笑脸 */
+.ba-empty { display: grid; justify-items: center; gap: 14px; padding: 30px 16px; text-align: center; }
+.ba-empty svg { width: 104px; height: 88px; animation: ba-bob 3.2s ease-in-out infinite; }
+.ba-empty p { margin: 0; color: var(--ink-soft); font-size: 13px; }
+@keyframes ba-bob { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-5px) rotate(3deg); } }
+
+/* 加载：三颗粉彩小球依次弹跳 */
+.ba-loader { display: flex; align-items: center; justify-content: center; gap: 12px; width: 132px; height: 96px; border-radius: 36px; background: var(--surface); box-shadow: var(--shadow-card); }
+.ba-loader i { width: 18px; height: 18px; border-radius: 50%; animation: ba-hop 1s ease-in-out infinite; }
+.ba-loader i:nth-child(1) { background: var(--sky-300); }
+.ba-loader i:nth-child(2) { background: var(--peach-300); animation-delay: .15s; }
+.ba-loader i:nth-child(3) { background: var(--mint-300); animation-delay: .3s; }
+@keyframes ba-hop { 0%, 60%, 100% { transform: translateY(0) scale(1, 1); } 30% { transform: translateY(-16px) scale(.94, 1.06); } 45% { transform: translateY(0) scale(1.1, .88); } }
+@media (prefers-reduced-motion: reduce) { .ba-loader i, .ba-empty svg { animation: none; } .ba-switch::after, .ba-tabs__indicator, .ba-stat__icon, .ba-table .ba-avatar, .ba-button { transition: none; } .ba-stat:hover .ba-stat__icon, .ba-table tbody tr:hover .ba-avatar { transform: none; } }

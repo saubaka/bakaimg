@@ -47,6 +47,7 @@ from app.services.appearance import (
 )
 from app.services.auth import revoke_other_sessions
 from app.services.identity import assert_not_last_superadmin, get_setting, set_setting
+from app.services.labels import audit_action
 from app.services.media import delete_storage_keys, image_storage_keys, storage_usage
 from app.services.operations import (
     OperationError,
@@ -66,8 +67,7 @@ def protect_admin():
     next_target = request.full_path if request.query_string else request.path
     return redirect(
         url_for(
-            "gateway.login",
-            intent="admin",
+            "auth.login",
             next=next_target,
         )
     )
@@ -132,7 +132,7 @@ def edit_user(user_id: int):
     user = db.get_or_404(User, user_id)
     roles = db.session.scalars(db.select(Role).order_by(Role.id)).all()
     form = UserAdminForm(obj=user)
-    form.role_ids.choices = [(role.id, f"{role.name} · {role.code}") for role in roles]
+    form.role_ids.choices = [(role.id, role.name) for role in roles]
     if request.method == "GET":
         form.role_ids.data = [role.id for role in user.roles]
         form.storage_quota_mb.data = user.storage_quota_bytes // (1024 * 1024)
@@ -195,9 +195,7 @@ def edit_role(role_id: int):
     role = db.get_or_404(Role, role_id)
     permissions = db.session.scalars(db.select(Permission).order_by(Permission.code)).all()
     form = RoleForm(obj=role)
-    form.permission_ids.choices = [
-        (permission.id, f"{permission.name} · {permission.code}") for permission in permissions
-    ]
+    form.permission_ids.choices = [(permission.id, permission.name) for permission in permissions]
     if request.method == "GET":
         form.permission_ids.data = [permission.id for permission in role.permissions]
     if form.validate_on_submit():
@@ -593,9 +591,9 @@ def revoke_api_token_admin(token_id: int):
         abort(400)
     token = db.get_or_404(ApiToken, token_id)
     revoke_api_token(token)
-    record_audit("admin.api_token.revoke", "api_token", str(token.id), "管理员撤销API令牌")
+    record_audit("admin.api_token.revoke", "api_token", str(token.id), "管理员收回应用钥匙")
     db.session.commit()
-    flash("API令牌已撤销。", "success")
+    flash("应用钥匙已收回。", "success")
     return redirect(url_for("admin.api_tokens", status=request.args.get("status", "active")))
 
 
@@ -720,7 +718,7 @@ def image_action(image_id: int, action: str):
         f"admin.image.{action}",
         "image_asset",
         str(image_id),
-        f"管理员执行图片操作：{action}",
+        f"管理员执行图片操作：{audit_action(f'admin.image.{action}')}",
     )
     db.session.commit()
     if keys:

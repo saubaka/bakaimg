@@ -1,79 +1,54 @@
 {% extends "layouts/admin.html" %}
-{% block title %}运维中心 · {{ system_name }}{% endblock %}
-{% block admin_title %}运维中心{% endblock %}
+{% from "components/macros.html" import stat %}
+{% block title %}{{ system_name }}｜后台｜维护中心{% endblock %}
+{% block admin_title %}维护中心{% endblock %}
 {% block admin_content %}
-  <section class="admin-hero card" data-reveal>
-    <div>
-      <span class="eyebrow">SAFE OPERATIONS</span>
-      <h2>每一次备份，都能被重新验证</h2>
-      <p>在线后台只负责创建和恢复预检；真正替换数据库与图片目录的恢复动作，仅允许停服后在本机命令行执行。</p>
-    </div>
-    <span class="admin-hero-art" aria-hidden="true">◌</span>
-  </section>
 
   <section class="metric-grid">
-    <article class="card metric-card">
-      <span>SQLite</span><strong>{{ diagnostics.database }}</strong>
-      <small>迁移 {{ diagnostics.migration or '未知' }}</small>
-    </article>
-    <article class="card metric-card">
-      <span>媒体一致性</span><strong>{{ diagnostics.media_status }}</strong>
-      <small>{{ diagnostics.media_records }} 项 · 缺失 {{ diagnostics.media_missing }} · 游离 {{ diagnostics.media_untracked }}</small>
-    </article>
-    <article class="card metric-card">
-      <span>本地备份</span><strong>{{ backups|length }}</strong>
-      <small>自动保留最近 20 份系统备份</small>
-    </article>
-    <article class="card metric-card">
-      <span>磁盘可用</span><strong>{{ format_bytes(disk.free) }}</strong>
-      <small>总容量 {{ format_bytes(disk.total) }}</small>
-    </article>
+    {{ stat('数据状态', diagnostics.database|health, '版本记录 ' ~ (diagnostics.migration or '未知'), 'database') }}
+    {{ stat('图片完整性', diagnostics.media_status|health, diagnostics.media_records ~ ' 项 · 缺失 ' ~ diagnostics.media_missing ~ ' · 游离 ' ~ diagnostics.media_untracked, 'check') }}
+    {{ stat('本地备份', backups|length, '自动保留最近 20 份系统备份', 'album') }}
+    {{ stat('磁盘可用', format_bytes(disk.free), '总容量 ' ~ format_bytes(disk.total), 'database') }}
   </section>
 
   <div class="admin-two-column">
-    <section class="card admin-panel">
-      <div class="section-heading">
-        <div><span class="eyebrow">MAINTENANCE</span><h2>维护模式</h2></div>
-      </div>
-      <p class="muted">开启后暂停前台与API交付，后台、登录、健康探针仍可访问；就绪探针会返回503。</p>
+    <section class="ba-panel">
+      <div class="section-heading"><h2 class="ba-heading">维护模式</h2></div>
+      <p class="muted ba-lead">开启后前台会暂时停下，后台和登录仍然可以使用。</p>
       <form method="post" action="{{ url_for('admin.update_maintenance') }}" class="stack-form">
         {{ maintenance_form.hidden_tag() }}
         <label class="setting-toggle">
-          {{ maintenance_form.enabled() }}
-          <span><strong>{{ maintenance_form.enabled.label.text }}</strong><small>让访客收到统一的503维护提示</small></span>
+          {{ maintenance_form.enabled(class_='u-switch-input') }}<span class="ba-switch" aria-hidden="true"></span>
+          <span><strong>{{ maintenance_form.enabled.label.text }}</strong><small>给访客显示一条简单的维护提示</small></span>
         </label>
-        <label>{{ maintenance_form.message.label }}{{ maintenance_form.message(maxlength=160) }}</label>
-        {{ maintenance_form.submit(class_="button button--primary") }}
+        <label class="ba-field">{{ maintenance_form.message.label }}{{ maintenance_form.message(maxlength=160) }}</label>
+        {{ maintenance_form.submit(class_="ba-button") }}
       </form>
     </section>
 
-    <section class="card admin-panel">
-      <div class="section-heading">
-        <div><span class="eyebrow">BACKUP</span><h2>创建可验证备份</h2></div>
-      </div>
-      <p class="muted">备份包含在线SQLite快照、数据库已跟踪的原图与缩略图、逐文件SHA-256清单；不包含配置、日志、缓存和明文令牌。</p>
+    <section class="ba-panel">
+      <div class="section-heading"><h2 class="ba-heading">创建一份备份</h2></div>
+      <p class="muted ba-lead">备份会带上图片和必要的内容，并先检查是否完整；配置、日志和未显示的钥匙不会放进去。</p>
       <form method="post" action="{{ url_for('admin.create_backup_admin') }}">
         {{ empty_form.hidden_tag() }}
-        <button class="button button--primary" type="submit">创建并立即验证</button>
+        <button class="ba-button" type="submit">创建并立即验证</button>
       </form>
     </section>
   </div>
 
-  <section class="card admin-panel">
-    <div class="section-heading">
-      <div><span class="eyebrow">ARCHIVES</span><h2>备份文件</h2></div>
-    </div>
+  <section class="ba-panel">
+    <div class="section-heading"><h2 class="ba-heading">备份文件</h2></div>
     <div class="event-list">
       {% for backup in backups %}
         <article>
           <i></i>
           <span>
             <strong>{{ backup.name }}</strong>
-            <small>{{ format_bytes(backup.size) }} · 保存在本机 instance/backups</small>
+            <small>{{ format_bytes(backup.size) }} · 可随时检查</small>
           </span>
           <form method="post" action="{{ url_for('admin.verify_backup_admin', archive_name=backup.name) }}">
             {{ empty_form.hidden_tag() }}
-            <button class="button button--soft button--small" type="submit">恢复预检</button>
+            <button class="ba-button ba-button--soft u-compact" type="submit">恢复预检</button>
           </form>
         </article>
       {% else %}
@@ -82,22 +57,20 @@
     </div>
   </section>
 
-  <section class="card admin-panel">
-    <div class="section-heading">
-      <div><span class="eyebrow">HISTORY</span><h2>最近运维记录</h2></div>
-    </div>
+  <section class="ba-panel">
+    <div class="section-heading"><h2 class="ba-heading">最近的维护</h2></div>
     <div class="event-list">
       {% for record in records %}
         <article>
           <i></i>
           <span>
-            <strong>{{ record.action }} · {{ record.status }}</strong>
+            <strong>{{ record.action|operation_action }} · {{ record.status|operation_status }}</strong>
             <small>{{ record.summary }}{% if record.archive_name %} · {{ record.archive_name }}{% endif %}</small>
           </span>
           <small>{{ record.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
         </article>
       {% else %}
-        <article><i></i><span><strong>暂无运维记录</strong><small>维护切换、备份和预检会写入这里</small></span></article>
+        <article><i></i><span><strong>暂无维护记录</strong><small>维护、备份和检查会写入这里</small></span></article>
       {% endfor %}
     </div>
   </section>

@@ -16,8 +16,8 @@ PERMISSIONS = {
     "images.manage_own": ("管理自己的图片", "管理个人图片、分享方式与相册。"),
     "images.moderate": ("审核图片", "治理全站图片、相册与存储。"),
     "favorites.manage": ("管理收藏", "收藏和整理公开图片。"),
-    "api.tokens.manage": ("管理API令牌", "创建和撤销自己的程序化访问令牌。"),
-    "api.tokens.admin": ("治理API令牌", "查看并撤销全站API令牌。"),
+    "api.tokens.manage": ("管理应用钥匙", "创建和收回自己的应用钥匙。"),
+    "api.tokens.admin": ("治理应用钥匙", "查看并收回全站应用钥匙。"),
 }
 
 ROLE_DEFINITIONS = {
@@ -70,17 +70,17 @@ ROLE_DEFINITIONS = {
 
 DEFAULT_SETTINGS = {
     "site_name": "baka图床",
-    "site_tagline": "把喜欢的画面认真收藏起来",
+    "site_tagline": "把照片放好，想看的时候就找得到",
     "page_transition_style": "stretch",
     "page_transition_duration": "720",
-    "page_transition_color_start": "#eaf6ff",
-    "page_transition_color_middle": "#f9fbff",
-    "page_transition_color_end": "#fceef6",
+    "page_transition_color_start": "#e5effb",
+    "page_transition_color_middle": "#f7f9fc",
+    "page_transition_color_end": "#f7e5ed",
     "admin_menu_subtitles_visible": "false",
     "dialog_style": "soft",
     "dialog_color_start": "#ffffff",
-    "dialog_color_end": "#fff1f7",
-    "dialog_accent": "#7eaed0",
+    "dialog_color_end": "#f7e5ed",
+    "dialog_accent": "#526fa6",
     "dialog_radius": "30",
     "dialog_width": "510",
     "dialog_backdrop_blur": "6",

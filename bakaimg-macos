@@ -1,0 +1,1748 @@
+#!/bin/sh
+# baka图床 macOS 管理面板
+#
+# 两种运行方式，自动识别：
+#   本机运行  在项目目录直接运行，不需要sudo、域名或证书，适合自己的Mac。
+#   正式部署  执行过 deploy-macos.sh 之后，由launchd托管应用与Nginx，需要管理员权限。
+set -eu
+
+VERSION="0.16.0"
+LABEL="com.saubaka.bakaimg"
+NGINX_LABEL="com.saubaka.bakaimg.nginx"
+MAINTENANCE_LABEL="com.saubaka.bakaimg.maintenance"
+CONFIG_DIR="${BAKAIMG_MACOS_CONFIG_DIR:-/Library/Application Support/bakaimg}"
+CONFIG_FILE="$CONFIG_DIR/manager.conf"
+ENV_FILE="$CONFIG_DIR/bakaimg.env"
+TLS_DIR="$CONFIG_DIR/tls"
+CERT_FILE="$TLS_DIR/origin.pem"
+KEY_FILE="$TLS_DIR/origin.key"
+NGINX_FILE="$CONFIG_DIR/nginx.conf"
+APP_PLIST="$CONFIG_DIR/$LABEL.plist"
+NGINX_PLIST="$CONFIG_DIR/$NGINX_LABEL.plist"
+MAINTENANCE_PLIST="$CONFIG_DIR/$MAINTENANCE_LABEL.plist"
+AUTOSTART_OFF_MARK="$CONFIG_DIR/autostart-off"
+LAUNCH_DIR="${BAKAIMG_MACOS_LAUNCH_DIR:-/Library/LaunchDaemons}"
+LOG_DIR="${BAKAIMG_MACOS_LOG_DIR:-/Library/Logs/bakaimg}"
+INSTALL_DIR_DEFAULT="/opt/bakaimg/current"
+PORT_DEFAULT=5200
+LAUNCHCTL="${BAKAIMG_LAUNCHCTL:-/bin/launchctl}"
+LSOF="${BAKAIMG_LSOF:-/usr/sbin/lsof}"
+LOG_RETENTION_DEFAULT=14
+LOG_MAX_MIB_DEFAULT=32
+
+# ---------------------------------------------------------------- 界面
+
+setup_colors() {
+    C_RED=""; C_GREEN=""; C_YELLOW=""; C_DIM=""; C_BOLD=""; C_RESET=""
+    if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then
+        C_RED=$(printf '\033[31m'); C_GREEN=$(printf '\033[32m'); C_YELLOW=$(printf '\033[33m')
+        C_DIM=$(printf '\033[2m'); C_BOLD=$(printf '\033[1m'); C_RESET=$(printf '\033[0m')
+    fi
+}
+
+say() { printf '%s\n' "$*"; }
+fail() { printf '错误：%s\n' "$*" >&2; exit 1; }
+
+badge_on() { printf '%s●%s %s' "$C_GREEN" "$C_RESET" "$1"; }
+badge_off() { printf '%s●%s %s' "$C_RED" "$C_RESET" "$1"; }
+badge_warn() { printf '%s●%s %s' "$C_YELLOW" "$C_RESET" "$1"; }
+dim() { printf '%s%s%s' "$C_DIM" "$1" "$C_RESET"; }
+row() { printf '  %s  %s\n' "$1" "$2"; }
+
+confirm() {
+    prompt=$1
+    default=${2:-n}
+    if [ ! -t 0 ]; then [ "$default" = y ]; return; fi
+    hint='[y/N]'
+    [ "$default" != y ] || hint='[Y/n]'
+    printf '%s %s ' "$prompt" "$hint"
+    IFS= read -r answer || answer=""
+    case ${answer:-$default} in y|Y|yes|YES|是) return 0 ;; *) return 1 ;; esac
+}
+
+pause_panel() {
+    [ -t 0 ] || return 0
+    printf '\n按回车返回面板…'
+    IFS= read -r _ignored || true
+}
+
+quiet_run() {
+    description=$1
+    shift
+    temp_log=$(/usr/bin/mktemp "${TMPDIR:-/tmp}/bakaimg.XXXXXX")
+    printf '%s…' "$description"
+    if "$@" >"$temp_log" 2>&1; then
+        printf ' 完成\n'
+        /bin/rm -f "$temp_log"
+        return 0
+    fi
+    printf ' 失败\n'
+    /usr/bin/tail -n 25 "$temp_log"
+    /bin/rm -f "$temp_log"
+    return 1
+}
+
+short_path() {
+    case $1 in
+        "${HOME:-/nonexistent}"/*) printf '~%s' "${1#"$HOME"}" ;;
+        *) printf '%s' "$1" ;;
+    esac
+}
+
+# ---------------------------------------------------------------- 基础工具
+
+resolve_self() {
+    target=$1
+    while [ -L "$target" ]; do
+        link=$(/usr/bin/readlink "$target")
+        case $link in
+            /*) target=$link ;;
+            *) target="$(/usr/bin/dirname "$target")/$link" ;;
+        esac
+    done
+    directory=$(cd "$(/usr/bin/dirname "$target")" && pwd -P)
+    printf '%s/%s' "$directory" "$(/usr/bin/basename "$target")"
+}
+
+require_macos() {
+    [ "$(uname -s)" = "Darwin" ] || fail "此管理脚本只适用于macOS。"
+    case "$(uname -m)" in arm64|x86_64) ;; *) fail "仅支持Apple芯片或Intel Mac。" ;; esac
+}
+
+require_root() {
+    [ "$(id -u)" -eq 0 ] || fail "请使用 sudo bakaimg $* 运行。"
+}
+
+config_get() {
+    key=$1
+    [ -f "$CONFIG_FILE" ] || return 0
+    /usr/bin/awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$CONFIG_FILE"
+}
+
+valid_domain() {
+    length=$(printf '%s' "$1" | /usr/bin/wc -c | /usr/bin/tr -d ' ')
+    [ "$length" -ge 4 ] && [ "$length" -le 253 ] || return 1
+    printf '%s' "$1" | /usr/bin/grep -Eiq '^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$'
+}
+
+normalize_domain() {
+    value=$(printf '%s' "$1" | /usr/bin/tr '[:upper:]' '[:lower:]' | /usr/bin/sed 's/[[:space:]]//g; s/\.$//')
+    valid_domain "$value" || fail "域名必须是单个完整主机名，不能包含协议、端口、路径或通配符。"
+    printf '%s' "$value"
+}
+
+valid_port() {
+    case "$1" in ''|*[!0-9]*) return 1 ;; esac
+    [ "$1" -ge 1024 ] 2>/dev/null && [ "$1" -le 65535 ] 2>/dev/null
+}
+
+find_brew() {
+    if [ -x /opt/homebrew/bin/brew ]; then printf '%s' /opt/homebrew/bin/brew
+    elif [ -x /usr/local/bin/brew ]; then printf '%s' /usr/local/bin/brew
+    elif command -v brew >/dev/null 2>&1; then command -v brew
+    else return 1
+    fi
+}
+
+detect_run_user() {
+    requested=${BAKAIMG_RUN_USER:-${SUDO_USER:-}}
+    if [ -n "$requested" ] && [ "$requested" != "root" ]; then printf '%s' "$requested"; return; fi
+    owner=$(config_get RUN_USER || true)
+    if [ -n "$owner" ]; then printf '%s' "$owner"; return; fi
+    owner=$(/usr/bin/stat -f '%Su' "${BAKAIMG_PROJECT_ROOT:-$INSTALL_DIR_DEFAULT}" 2>/dev/null || true)
+    [ -n "$owner" ] && [ "$owner" != "root" ] || fail "无法确定运行用户，请以普通管理员账号执行 sudo。"
+    printf '%s' "$owner"
+}
+
+run_as_user() {
+    target_user=$1
+    shift
+    /usr/bin/sudo -H -u "$target_user" "$@"
+}
+
+brew_value() {
+    brew_path=$1
+    shift
+    if [ "$(id -u)" -eq 0 ]; then
+        brew_user=$(config_get RUN_USER || true)
+        if [ -n "$brew_user" ] && [ "$brew_user" != root ]; then
+            run_as_user "$brew_user" "$brew_path" "$@"
+            return
+        fi
+    fi
+    "$brew_path" "$@"
+}
+
+atomic_install() {
+    source_file=$1
+    destination=$2
+    mode=$3
+    parent=$(/usr/bin/dirname "$destination")
+    /bin/mkdir -p "$parent"
+    temp_file="$destination.tmp.$$"
+    /bin/cp "$source_file" "$temp_file"
+    /bin/chmod "$mode" "$temp_file"
+    /bin/mv -f "$temp_file" "$destination"
+}
+
+write_config() {
+    project_root=$1
+    run_user=$2
+    domain=$3
+    local_port=$4
+    retention_days=$5
+    max_size_mib=$6
+    brew_path=$7
+    /bin/mkdir -p "$CONFIG_DIR"
+    temp_file="$CONFIG_FILE.tmp.$$"
+    {
+        printf 'PROJECT_ROOT=%s\n' "$project_root"
+        printf 'RUN_USER=%s\n' "$run_user"
+        printf 'DOMAIN=%s\n' "$domain"
+        printf 'LOCAL_PORT=%s\n' "$local_port"
+        printf 'RETENTION_DAYS=%s\n' "$retention_days"
+        printf 'MAX_SIZE_MIB=%s\n' "$max_size_mib"
+        printf 'BREW=%s\n' "$brew_path"
+    } > "$temp_file"
+    /bin/chmod 600 "$temp_file"
+    /bin/mv -f "$temp_file" "$CONFIG_FILE"
+}
+
+# ---------------------------------------------------------------- 端口与进程
+
+port_python() {
+    python_bin=${BAKAIMG_PORT_PYTHON:-}
+    if [ -z "$python_bin" ] && [ "$MODE" = local ] && [ -x "$LOCAL_VENV/bin/python" ]; then
+        python_bin="$LOCAL_VENV/bin/python"
+    fi
+    if [ -z "$python_bin" ] && [ "$MODE" = production ]; then
+        python_bin=$(config_get PYTHON 2>/dev/null || true)
+        if [ -z "$python_bin" ]; then
+            brew_path=$(find_brew 2>/dev/null || true)
+            if [ -n "$brew_path" ]; then
+                python_bin="$(brew_value "$brew_path" --prefix python@3.14 2>/dev/null)/bin/python3.14"
+            fi
+        fi
+    fi
+    if [ ! -x "$python_bin" ]; then
+        # /usr/bin/python3 只是开发者工具的入口，未安装时调用会弹出安装窗口。
+        python_bin=""
+        if /usr/bin/xcode-select -p >/dev/null 2>&1 && [ -x /usr/bin/python3 ]; then python_bin=/usr/bin/python3; fi
+    fi
+    printf '%s' "$python_bin"
+}
+
+listen_pid() {
+    "$LSOF" -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | /usr/bin/head -n 1 || true
+}
+
+port_is_free() {
+    port=$1
+    [ -z "$(listen_pid "$port")" ] || return 1
+    probe_python=$(port_python)
+    [ -n "$probe_python" ] || return 0
+    "$probe_python" - "$port" <<'PY'
+import socket, sys
+port = int(sys.argv[1])
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+try:
+    sock.bind(("127.0.0.1", port))
+except OSError:
+    raise SystemExit(1)
+finally:
+    sock.close()
+PY
+}
+
+find_available_port() {
+    candidate=$1
+    valid_port "$candidate" || candidate=$PORT_DEFAULT
+    first=$candidate
+    while ! port_is_free "$candidate"; do
+        candidate=$((candidate + 1))
+        [ "$candidate" -le 65535 ] || candidate=1024
+        [ "$candidate" -ne "$first" ] || fail "没有可用的本地端口。"
+    done
+    printf '%s' "$candidate"
+}
+
+job_loaded() { "$LAUNCHCTL" print "$1" >/dev/null 2>&1; }
+
+job_pid() {
+    "$LAUNCHCTL" print "$1" 2>/dev/null | /usr/bin/awk '$1 == "pid" && $2 == "=" {print $3; exit}'
+}
+
+label_disabled() {
+    "$LAUNCHCTL" print-disabled "$1" 2>/dev/null | /usr/bin/grep -F "\"$2\"" | /usr/bin/grep -Eq '=> (true|disabled)'
+}
+
+pid_alive() { [ -n "${1:-}" ] && /bin/kill -0 "$1" 2>/dev/null; }
+
+pid_is_app() {
+    process_command=$(/bin/ps -o command= -p "$1" 2>/dev/null || true)
+    case $process_command in *wsgi:app*|*run-local*|*serve.py*) return 0 ;; esac
+    return 1
+}
+
+elapsed_of() {
+    value=$(/bin/ps -o etime= -p "$1" 2>/dev/null | /usr/bin/tr -d ' ' || true)
+    case $value in
+        *-*) printf '%s天 %s' "${value%%-*}" "${value#*-}" ;;
+        *) printf '%s' "$value" ;;
+    esac
+}
+
+health_body() {
+    port=$1
+    if [ "$MODE" = production ]; then
+        domain=$(config_get DOMAIN || true)
+        /usr/bin/curl -fsS -m 2 -H "Host: $domain" -H "X-Forwarded-Proto: https" "http://127.0.0.1:$port/healthz" 2>/dev/null | /usr/bin/tr -d '\n' || true
+    else
+        /usr/bin/curl -fsS -m 2 "http://127.0.0.1:$port/healthz" 2>/dev/null | /usr/bin/tr -d '\n' || true
+    fi
+}
+
+health_version() {
+    printf '%s' "$1" | /usr/bin/sed -n 's/.*"version": *"\([^"]*\)".*/\1/p'
+}
+
+json_bool() { if [ "$1" = 1 ]; then printf true; else printf false; fi; }
+json_number() { if [ -n "${1:-}" ]; then printf '%s' "$1"; else printf null; fi; }
+
+# ---------------------------------------------------------------- 渲染
+
+xml_escape() {
+    printf '%s' "$1" | /usr/bin/sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g' -e "s/'/\&apos;/g"
+}
+
+render_environment() {
+    output=$1
+    domain=$2
+    port=$3
+    secret=$4
+    {
+        printf 'CLOUDNEST_ENV=production\n'
+        printf 'CLOUDNEST_SITE_URL=https://%s\n' "$domain"
+        printf 'CLOUDNEST_ALLOWED_HOST=%s\n' "$domain"
+        printf 'CLOUDNEST_HOST=127.0.0.1\n'
+        printf 'CLOUDNEST_PORT=%s\n' "$port"
+        printf 'CLOUDNEST_TRUST_PROXY_HOPS=1\n'
+        printf 'CLOUDNEST_THREADS=8\n'
+        printf 'CLOUDNEST_SECRET_KEY=%s\n' "$secret"
+        printf 'PYTHONUNBUFFERED=1\n'
+    } > "$output"
+    /bin/chmod 600 "$output"
+}
+
+render_nginx() {
+    output=$1
+    domain=$2
+    port=$3
+    brew_path=$4
+    nginx_prefix=$(brew_value "$brew_path" --prefix nginx)
+    mime_types="$nginx_prefix/etc/nginx/mime.types"
+    [ -f "$mime_types" ] || mime_types="$(brew_value "$brew_path" --prefix)/etc/nginx/mime.types"
+    cat > "$output" <<EOF
+worker_processes auto;
+pid "$CONFIG_DIR/nginx.pid";
+error_log "$LOG_DIR/nginx-error.log" warn;
+
+events { worker_connections 1024; }
+
+http {
+    include "$mime_types";
+    default_type application/octet-stream;
+    sendfile on;
+    keepalive_timeout 65;
+
+    server {
+        listen 80 default_server;
+        server_name _;
+        return 444;
+    }
+
+    server {
+        listen 443 ssl default_server;
+        server_name _;
+        ssl_reject_handshake on;
+        ssl_certificate "$CERT_FILE";
+        ssl_certificate_key "$KEY_FILE";
+    }
+
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name $domain;
+        ssl_certificate "$CERT_FILE";
+        ssl_certificate_key "$KEY_FILE";
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_session_cache shared:BakaImgTLS:10m;
+        ssl_session_timeout 1d;
+        client_max_body_size 64m;
+        access_log "$LOG_DIR/access.log";
+        error_log "$LOG_DIR/nginx-error.log" warn;
+
+        location / {
+            proxy_pass http://127.0.0.1:$port;
+            proxy_http_version 1.1;
+            proxy_set_header Host $domain;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-Host $domain;
+            proxy_set_header X-Forwarded-For \$remote_addr;
+            proxy_set_header X-Request-ID \$request_id;
+            proxy_connect_timeout 10s;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_request_buffering off;
+        }
+    }
+}
+EOF
+}
+
+render_app_plist() {
+    output=$1
+    manager_path=$2
+    project_root=$3
+    cat > "$output" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>$LABEL</string>
+<key>ProgramArguments</key><array><string>$(xml_escape "$manager_path")</string><string>run-service</string></array>
+<key>WorkingDirectory</key><string>$(xml_escape "$project_root")</string>
+<key>RunAtLoad</key><true/>
+<key>KeepAlive</key><true/>
+<key>ThrottleInterval</key><integer>3</integer>
+<key>ProcessType</key><string>Background</string>
+<key>StandardOutPath</key><string>$(xml_escape "$LOG_DIR/app.log")</string>
+<key>StandardErrorPath</key><string>$(xml_escape "$LOG_DIR/error.log")</string>
+</dict></plist>
+EOF
+}
+
+render_nginx_plist() {
+    output=$1
+    nginx_bin=$2
+    cat > "$output" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>$NGINX_LABEL</string>
+<key>ProgramArguments</key><array><string>$(xml_escape "$nginx_bin")</string><string>-c</string><string>$(xml_escape "$NGINX_FILE")</string><string>-g</string><string>daemon off;</string></array>
+<key>RunAtLoad</key><true/>
+<key>KeepAlive</key><true/>
+<key>ThrottleInterval</key><integer>3</integer>
+<key>StandardOutPath</key><string>$(xml_escape "$LOG_DIR/nginx-launch.log")</string>
+<key>StandardErrorPath</key><string>$(xml_escape "$LOG_DIR/nginx-error.log")</string>
+</dict></plist>
+EOF
+}
+
+render_maintenance_plist() {
+    output=$1
+    manager_path=$2
+    cat > "$output" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>$MAINTENANCE_LABEL</string>
+<key>ProgramArguments</key><array><string>$(xml_escape "$manager_path")</string><string>maintenance</string></array>
+<key>StartCalendarInterval</key><dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>20</integer></dict>
+<key>LowPriorityIO</key><true/>
+<key>StandardOutPath</key><string>$(xml_escape "$LOG_DIR/maintenance.log")</string>
+<key>StandardErrorPath</key><string>$(xml_escape "$LOG_DIR/maintenance-error.log")</string>
+</dict></plist>
+EOF
+}
+
+# 本机模式的开机自启任务：登录后由launchd拉起，异常退出自动重启。
+render_local_plist() {
+    output=$1
+    label=${2:-$LOCAL_LABEL}
+    run_command=${3:-run-local}
+    keep_alive=${4:-1}
+    brew_dir=""
+    brew_path=$(find_brew 2>/dev/null || true)
+    [ -z "$brew_path" ] || brew_dir="$(/usr/bin/dirname "$brew_path"):"
+    {
+        cat <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>$(xml_escape "$label")</string>
+<key>ProgramArguments</key><array><string>/bin/sh</string><string>$(xml_escape "$SELF")</string><string>$run_command</string></array>
+<key>WorkingDirectory</key><string>$(xml_escape "$LOCAL_ROOT")</string>
+<key>EnvironmentVariables</key><dict><key>PATH</key><string>$(xml_escape "$brew_dir")/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+<key>RunAtLoad</key><true/>
+EOF
+        if [ "$keep_alive" = 1 ]; then
+            printf '<key>KeepAlive</key><true/>\n<key>ThrottleInterval</key><integer>5</integer>\n'
+        fi
+        cat <<EOF
+<key>StandardOutPath</key><string>$(xml_escape "$LOCAL_APP_LOG")</string>
+<key>StandardErrorPath</key><string>$(xml_escape "$LOCAL_APP_LOG")</string>
+</dict></plist>
+EOF
+    } > "$output"
+}
+
+# ================================================================ 正式部署（launchd + Nginx）
+
+read_secret() {
+    [ -f "$ENV_FILE" ] || return 0
+    /usr/bin/awk -F= '$1 == "CLOUDNEST_SECRET_KEY" {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE"
+}
+
+write_runtime_files() {
+    project_root=$(config_get PROJECT_ROOT)
+    run_user=$(config_get RUN_USER)
+    domain=$(config_get DOMAIN)
+    port=$(config_get LOCAL_PORT)
+    brew_path=$(config_get BREW)
+    [ -n "$project_root" ] && [ -n "$run_user" ] && [ -n "$domain" ] && [ -n "$brew_path" ] || fail "部署配置不完整。"
+    secret=$(read_secret || true)
+    if [ -z "$secret" ]; then
+        openssl_bin="$(brew_value "$brew_path" --prefix openssl@3)/bin/openssl"
+        [ -x "$openssl_bin" ] || fail "未找到OpenSSL 3，无法生成运行密钥。"
+        secret=$("$openssl_bin" rand -hex 48)
+    fi
+    render_environment "$ENV_FILE.tmp.$$" "$domain" "$port" "$secret"
+    /bin/mv -f "$ENV_FILE.tmp.$$" "$ENV_FILE"
+    render_nginx "$NGINX_FILE.tmp.$$" "$domain" "$port" "$brew_path"
+    /bin/mv -f "$NGINX_FILE.tmp.$$" "$NGINX_FILE"
+    manager_path=/usr/local/bin/bakaimg
+    render_app_plist "$APP_PLIST.tmp.$$" "$manager_path" "$project_root"
+    /bin/mv -f "$APP_PLIST.tmp.$$" "$APP_PLIST"
+    nginx_bin="$(brew_value "$brew_path" --prefix nginx)/bin/nginx"
+    [ -x "$nginx_bin" ] || nginx_bin="$(brew_value "$brew_path" --prefix)/bin/nginx"
+    render_nginx_plist "$NGINX_PLIST.tmp.$$" "$nginx_bin"
+    /bin/mv -f "$NGINX_PLIST.tmp.$$" "$NGINX_PLIST"
+    render_maintenance_plist "$MAINTENANCE_PLIST.tmp.$$" "$manager_path"
+    /bin/mv -f "$MAINTENANCE_PLIST.tmp.$$" "$MAINTENANCE_PLIST"
+    /bin/chmod 600 "$ENV_FILE" "$CONFIG_FILE" "$KEY_FILE" 2>/dev/null || true
+    /bin/chmod 644 "$NGINX_FILE" "$APP_PLIST" "$NGINX_PLIST" "$MAINTENANCE_PLIST"
+    /usr/sbin/chown -R root:wheel "$CONFIG_DIR"
+    /usr/sbin/chown -R "$run_user":staff "$project_root/instance" "$LOG_DIR"
+}
+
+# 把launchd配置复制到系统启动目录，等同于“开机自启已开启”。
+copy_plists() {
+    atomic_install "$APP_PLIST" "$LAUNCH_DIR/$LABEL.plist" 644
+    atomic_install "$NGINX_PLIST" "$LAUNCH_DIR/$NGINX_LABEL.plist" 644
+    atomic_install "$MAINTENANCE_PLIST" "$LAUNCH_DIR/$MAINTENANCE_LABEL.plist" 644
+    /usr/sbin/chown root:wheel "$LAUNCH_DIR/$LABEL.plist" "$LAUNCH_DIR/$NGINX_LABEL.plist" "$LAUNCH_DIR/$MAINTENANCE_LABEL.plist" 2>/dev/null || true
+}
+
+remove_autostart_plists() {
+    /bin/rm -f "$LAUNCH_DIR/$LABEL.plist" "$LAUNCH_DIR/$NGINX_LABEL.plist" "$LAUNCH_DIR/$MAINTENANCE_LABEL.plist"
+}
+
+prod_autostart_on() {
+    [ -f "$LAUNCH_DIR/$LABEL.plist" ] && ! label_disabled system "$LABEL"
+}
+
+# 旧版本用 launchctl disable 表示“关闭自启”，这里改成删除启动目录中的配置。
+migrate_legacy_disabled() {
+    for legacy_label in "$LABEL" "$NGINX_LABEL" "$MAINTENANCE_LABEL"; do
+        if label_disabled system "$legacy_label"; then
+            "$LAUNCHCTL" enable "system/$legacy_label" >/dev/null 2>&1 || true
+            remove_autostart_plists
+            : > "$AUTOSTART_OFF_MARK"
+        fi
+    done
+}
+
+plist_for() {
+    if [ -f "$LAUNCH_DIR/$1.plist" ]; then
+        printf '%s/%s.plist' "$LAUNCH_DIR" "$1"
+    else
+        printf '%s/%s.plist' "$CONFIG_DIR" "$1"
+    fi
+}
+
+bootout_label() {
+    label=$1
+    "$LAUNCHCTL" bootout "system/$label" >/dev/null 2>&1 || true
+}
+
+bootstrap_label() {
+    label=$1
+    bootout_label "$label"
+    "$LAUNCHCTL" bootstrap system "$(plist_for "$label")"
+}
+
+validate_certificate() {
+    domain=$1
+    certificate=$2
+    private_key=$3
+    [ -f "$certificate" ] || fail "找不到证书文件：$certificate"
+    [ -f "$private_key" ] || fail "找不到私钥文件：$private_key"
+    brew_path=$(find_brew) || fail "未找到Homebrew。"
+    openssl_bin="$(brew_value "$brew_path" --prefix openssl@3)/bin/openssl"
+    [ -x "$openssl_bin" ] || fail "未找到OpenSSL 3。"
+    "$openssl_bin" x509 -in "$certificate" -noout -checkend 604800 >/dev/null || fail "源站证书即将过期或已经失效。"
+    "$openssl_bin" x509 -in "$certificate" -noout -checkhost "$domain" >/dev/null || fail "源站证书没有覆盖设置的域名。"
+    identity=$("$openssl_bin" x509 -in "$certificate" -noout -issuer -subject)
+    printf '%s' "$identity" | /usr/bin/grep -Eiq 'CloudFlare Origin|Cloudflare Origin' || fail "只接受Cloudflare Origin CA源站证书。"
+    "$openssl_bin" pkey -in "$private_key" -passin pass: -noout -check >/dev/null || fail "源站私钥无效，或私钥带有密码。"
+    cert_hash=$("$openssl_bin" x509 -in "$certificate" -pubkey -noout | "$openssl_bin" sha256)
+    key_hash=$("$openssl_bin" pkey -in "$private_key" -passin pass: -pubout | "$openssl_bin" sha256)
+    [ "$cert_hash" = "$key_hash" ] || fail "源站证书与私钥不匹配。"
+}
+
+# 部署或更新结束后：首次部署默认开启开机自启，之后尊重用户在面板里的选择。
+finish_deploy() {
+    if [ -f "$AUTOSTART_OFF_MARK" ]; then
+        if [ -f "$LAUNCH_DIR/$LABEL.plist" ]; then copy_plists; fi
+    else
+        copy_plists
+    fi
+    start_services
+}
+
+configure_tls() {
+    [ "$#" -ge 3 ] || fail "用法：sudo bakaimg configure 域名 源站证书PEM 私钥PEM"
+    domain=$(normalize_domain "$1")
+    certificate=$2
+    private_key=$3
+    validate_certificate "$domain" "$certificate" "$private_key"
+    /bin/mkdir -p "$TLS_DIR"
+    atomic_install "$certificate" "$CERT_FILE" 644
+    atomic_install "$private_key" "$KEY_FILE" 600
+    project_root=$(config_get PROJECT_ROOT)
+    run_user=$(config_get RUN_USER)
+    port=$(config_get LOCAL_PORT)
+    days=$(config_get RETENTION_DAYS)
+    size=$(config_get MAX_SIZE_MIB)
+    brew_path=$(config_get BREW)
+    write_config "$project_root" "$run_user" "$domain" "$port" "$days" "$size" "$brew_path"
+    write_runtime_files
+    "$(brew_value "$brew_path" --prefix nginx)/bin/nginx" -t -c "$NGINX_FILE"
+    finish_deploy
+    say "已设置唯一访问域名：https://$domain"
+}
+
+install_runtime() {
+    require_root install
+    require_macos
+    project_root=${BAKAIMG_PROJECT_ROOT:-$INSTALL_DIR_DEFAULT}
+    [ -f "$project_root/serve.py" ] || fail "安装目录中缺少serve.py：$project_root"
+    run_user=$(detect_run_user)
+    /usr/bin/id "$run_user" >/dev/null 2>&1 || fail "运行用户不存在：$run_user"
+    brew_path=$(find_brew) || fail "请先安装Homebrew，再重新运行部署脚本。"
+    run_as_user "$run_user" "$brew_path" install python@3.14 nginx openssl@3 git
+    python_bin="$(run_as_user "$run_user" "$brew_path" --prefix python@3.14)/bin/python3.14"
+    [ -x "$python_bin" ] || fail "未找到Homebrew Python 3.14。"
+    /bin/mkdir -p "$project_root/instance" "$LOG_DIR" "$TLS_DIR"
+    /usr/sbin/chown -R "$run_user":staff "$project_root" "$LOG_DIR"
+    if [ ! -x "$project_root/.venv/bin/python" ]; then
+        run_as_user "$run_user" "$python_bin" -m venv "$project_root/.venv"
+    fi
+    case "$(uname -m)" in
+        arm64) wheelhouse="$project_root/wheelhouse-macos-arm64" ;;
+        x86_64) wheelhouse="$project_root/wheelhouse-macos-x64" ;;
+    esac
+    [ -d "$wheelhouse" ] || fail "缺少当前Mac对应的离线依赖目录：$wheelhouse"
+    run_as_user "$run_user" "$project_root/.venv/bin/python" -m pip install \
+        --disable-pip-version-check --no-index --find-links "$wheelhouse" \
+        -r "$project_root/requirements-macos.txt"
+    current_domain=$(config_get DOMAIN || true)
+    current_port=$(config_get LOCAL_PORT || true)
+    current_days=$(config_get RETENTION_DAYS || true)
+    current_size=$(config_get MAX_SIZE_MIB || true)
+    [ -n "$current_port" ] || current_port=$PORT_DEFAULT
+    [ -n "$current_days" ] || current_days=$LOG_RETENTION_DEFAULT
+    [ -n "$current_size" ] || current_size=$LOG_MAX_MIB_DEFAULT
+    write_config "$project_root" "$run_user" "$current_domain" "$current_port" "$current_days" "$current_size" "$brew_path"
+    /bin/mkdir -p /usr/local/bin
+    atomic_install "$project_root/bakaimg-macos" /usr/local/bin/bakaimg 755
+    atomic_install "$project_root/bakaimg-macos" /usr/local/bin/bakaimg-macos 755
+    if [ "$#" -ge 3 ]; then
+        configure_tls "$1" "$2" "$3"
+    elif [ -n "$current_domain" ] && [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
+        write_runtime_files
+        finish_deploy
+    else
+        say "macOS运行环境已安装。请运行 sudo bakaimg configure 域名 源站证书 私钥。"
+    fi
+}
+
+load_env_value() {
+    key=$1
+    /usr/bin/awk -F= -v key="$key" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$ENV_FILE"
+}
+
+# 以运行用户身份执行项目的 flask 命令（需要项目目录作为当前目录）。
+prod_flask() {
+    project_root=$(config_get PROJECT_ROOT)
+    run_user=$(config_get RUN_USER)
+    python_bin="$project_root/.venv/bin/python"
+    [ -x "$python_bin" ] || fail "Python运行环境不存在。"
+    (
+        cd "$project_root"
+        run_as_user "$run_user" /usr/bin/env \
+            CLOUDNEST_ENV="$(load_env_value CLOUDNEST_ENV)" \
+            CLOUDNEST_SITE_URL="$(load_env_value CLOUDNEST_SITE_URL)" \
+            CLOUDNEST_ALLOWED_HOST="$(load_env_value CLOUDNEST_ALLOWED_HOST)" \
+            CLOUDNEST_HOST=127.0.0.1 \
+            CLOUDNEST_PORT="$(load_env_value CLOUDNEST_PORT)" \
+            CLOUDNEST_TRUST_PROXY_HOPS=1 \
+            CLOUDNEST_SECRET_KEY="$(load_env_value CLOUDNEST_SECRET_KEY)" \
+            PYTHONUNBUFFERED=1 \
+            "$python_bin" -m flask --app wsgi:app "$@"
+    )
+}
+
+run_flask_checks() {
+    prod_flask db upgrade
+    prod_flask init-site
+    prod_flask system-check
+    prod_flask media-check
+}
+
+prepare_port() {
+    require_root prepare-port
+    project_root=$(config_get PROJECT_ROOT)
+    run_user=$(config_get RUN_USER)
+    domain=$(config_get DOMAIN)
+    preferred=$(config_get LOCAL_PORT)
+    days=$(config_get RETENTION_DAYS)
+    size=$(config_get MAX_SIZE_MIB)
+    brew_path=$(config_get BREW)
+    selected=$(find_available_port "$preferred")
+    write_config "$project_root" "$run_user" "$domain" "$selected" "$days" "$size" "$brew_path"
+    write_runtime_files
+    if [ "$selected" != "$preferred" ]; then say "端口${preferred}已占用，已切换到127.0.0.1:${selected}。"; fi
+    printf '%s\n' "$selected" > "$CONFIG_DIR/active-port"
+}
+
+run_service() {
+    require_root run-service
+    prepare_port
+    run_flask_checks
+    project_root=$(config_get PROJECT_ROOT)
+    run_user=$(config_get RUN_USER)
+    python_bin="$project_root/.venv/bin/python"
+    port=$(load_env_value CLOUDNEST_PORT)
+    nginx_bin="$(config_get BREW)"
+    nginx_bin="$(brew_value "$nginx_bin" --prefix nginx)/bin/nginx"
+    "$nginx_bin" -t -c "$NGINX_FILE" >/dev/null
+    "$nginx_bin" -s reload -c "$NGINX_FILE" >/dev/null 2>&1 || true
+    exec /usr/bin/sudo -H -u "$run_user" /usr/bin/env \
+        CLOUDNEST_ENV=production \
+        CLOUDNEST_SITE_URL="$(load_env_value CLOUDNEST_SITE_URL)" \
+        CLOUDNEST_ALLOWED_HOST="$(load_env_value CLOUDNEST_ALLOWED_HOST)" \
+        CLOUDNEST_HOST=127.0.0.1 \
+        CLOUDNEST_PORT="$port" \
+        CLOUDNEST_TRUST_PROXY_HOPS=1 \
+        CLOUDNEST_THREADS=8 \
+        CLOUDNEST_SECRET_KEY="$(load_env_value CLOUDNEST_SECRET_KEY)" \
+        PYTHONUNBUFFERED=1 \
+        "$python_bin" "$project_root/serve.py"
+}
+
+prod_active_port() {
+    value=""
+    [ ! -f "$CONFIG_DIR/active-port" ] || value=$(/usr/bin/head -n 1 "$CONFIG_DIR/active-port" 2>/dev/null || true)
+    valid_port "${value:-}" || value=$(config_get LOCAL_PORT || true)
+    valid_port "${value:-}" || value=$PORT_DEFAULT
+    printf '%s' "$value"
+}
+
+prod_start() {
+    require_root start
+    [ -f "$NGINX_FILE" ] && [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ] || fail "请先设置域名和源站证书。"
+    brew_path=$(config_get BREW)
+    [ -n "$brew_path" ] || fail "部署配置不完整。"
+    nginx_bin="$(brew_value "$brew_path" --prefix nginx)/bin/nginx"
+    [ -x "$nginx_bin" ] || nginx_bin="$(brew_value "$brew_path" --prefix)/bin/nginx"
+    "$nginx_bin" -t -c "$NGINX_FILE" >/dev/null || fail "Nginx配置检查未通过。"
+    migrate_legacy_disabled
+    if [ -f "$LAUNCH_DIR/$LABEL.plist" ]; then copy_plists; fi
+    bootstrap_label "$NGINX_LABEL"
+    bootstrap_label "$MAINTENANCE_LABEL"
+    bootstrap_label "$LABEL"
+    say "服务已启动。"
+}
+
+prod_stop() {
+    require_root stop
+    bootout_label "$LABEL"
+    bootout_label "$NGINX_LABEL"
+    say "服务已停止。"
+    if prod_autostart_on; then say "提示：开机自启仍处于开启状态，下次开机会自动运行。"; fi
+}
+
+prod_enable() {
+    require_root enable
+    [ -f "$APP_PLIST" ] && [ -f "$NGINX_PLIST" ] && [ -f "$MAINTENANCE_PLIST" ] || fail "请先设置域名和源站证书。"
+    copy_plists
+    for item in "$LABEL" "$NGINX_LABEL" "$MAINTENANCE_LABEL"; do
+        "$LAUNCHCTL" enable "system/$item" >/dev/null 2>&1 || true
+    done
+    /bin/rm -f "$AUTOSTART_OFF_MARK"
+    say "开机自启已开启（当前运行状态不变）。"
+}
+
+prod_disable() {
+    require_root disable
+    remove_autostart_plists
+    : > "$AUTOSTART_OFF_MARK"
+    say "开机自启已关闭（当前运行状态不变，下次开机不会自动运行）。"
+}
+
+# ================================================================ 本机运行（无需sudo）
+
+local_require_project() {
+    [ -f "$LOCAL_ROOT/serve.py" ] && [ -f "$LOCAL_ROOT/wsgi.py" ] && [ -d "$LOCAL_ROOT/app" ] ||
+        fail "找不到项目文件。请在项目目录中运行本脚本；正式部署请先执行 sudo sh deploy-macos.sh。"
+}
+
+local_prepare_dirs() {
+    /bin/mkdir -p "$LOCAL_RUNTIME_DIR" "$LOCAL_LOG_DIR"
+}
+
+local_conf_get() {
+    [ -f "$LOCAL_CONF" ] || return 0
+    /usr/bin/awk -F= -v key="$1" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "$LOCAL_CONF"
+}
+
+local_pref_port() {
+    value=$(local_conf_get PORT || true)
+    if valid_port "${value:-}"; then printf '%s' "$value"; else printf '%s' "$PORT_DEFAULT"; fi
+}
+
+local_set_pref_port() {
+    local_prepare_dirs
+    printf 'PORT=%s\n' "$1" > "$LOCAL_CONF.tmp.$$"
+    /bin/mv -f "$LOCAL_CONF.tmp.$$" "$LOCAL_CONF"
+}
+
+local_job_target() { printf '%s/%s' "$LOCAL_DOMAIN" "$LOCAL_LABEL"; }
+
+local_direct_pid() {
+    [ -f "$LOCAL_PID_FILE" ] || return 0
+    recorded=$(/usr/bin/head -n 1 "$LOCAL_PID_FILE" 2>/dev/null || true)
+    if pid_alive "$recorded" && pid_is_app "$recorded"; then printf '%s' "$recorded"; fi
+}
+
+local_app_pid() {
+    found=$(job_pid "$(local_job_target)" || true)
+    if [ -z "$found" ]; then found=$(local_direct_pid || true); fi
+    printf '%s' "$found"
+}
+
+local_run_source() {
+    if [ -n "$(job_pid "$(local_job_target)" || true)" ]; then printf '开机自启托管'; else printf '手动启动'; fi
+}
+
+local_active_port() {
+    value=""
+    [ ! -f "$LOCAL_PORT_FILE" ] || value=$(/usr/bin/head -n 1 "$LOCAL_PORT_FILE" 2>/dev/null || true)
+    if valid_port "${value:-}"; then printf '%s' "$value"; else local_pref_port; fi
+}
+
+local_agent_file() { printf '%s/%s.plist' "$LOCAL_AGENT_DIR" "$LOCAL_LABEL"; }
+
+local_autostart_on() {
+    [ -f "$(local_agent_file)" ] && ! label_disabled "$LOCAL_DOMAIN" "$LOCAL_LABEL"
+}
+
+local_autostart_path_ok() {
+    /usr/bin/grep -qF "<string>$(xml_escape "$SELF")</string>" "$(local_agent_file)" 2>/dev/null
+}
+
+protected_location() {
+    case $1 in
+        "${HOME:-/nonexistent}"/Desktop|"${HOME:-/nonexistent}"/Desktop/*) return 0 ;;
+        "${HOME:-/nonexistent}"/Documents|"${HOME:-/nonexistent}"/Documents/*) return 0 ;;
+        "${HOME:-/nonexistent}"/Downloads|"${HOME:-/nonexistent}"/Downloads/*) return 0 ;;
+    esac
+    return 1
+}
+
+requirements_hash() {
+    /usr/bin/shasum -a 256 "$LOCAL_ROOT/requirements-macos.txt" 2>/dev/null | /usr/bin/awk '{print $1}'
+}
+
+local_env_state() {
+    if [ ! -x "$LOCAL_VENV/bin/python" ] || [ ! -f "$LOCAL_DEPS_MARK" ]; then printf missing; return; fi
+    have=$(/usr/bin/awk -F= '$1 == "requirements" {print $2; exit}' "$LOCAL_DEPS_MARK")
+    if [ "$have" = "$(requirements_hash)" ]; then printf ready; else printf outdated; fi
+}
+
+local_env_python_version() {
+    /usr/bin/awk -F= '$1 == "python" {print $2; exit}' "$LOCAL_DEPS_MARK" 2>/dev/null
+}
+
+python_ok() {
+    [ -n "${1:-}" ] && [ -x "$1" ] || return 1
+    "$1" -c 'import sys; raise SystemExit(0 if (3, 12) <= sys.version_info[:2] <= (3, 14) else 1)' 2>/dev/null
+}
+
+# 优先Python 3.14（与随项目提供的离线依赖一致），其次3.13、3.12。
+find_python() {
+    if [ -n "${BAKAIMG_PYTHON:-}" ]; then
+        python_ok "$BAKAIMG_PYTHON" || return 1
+        printf '%s' "$BAKAIMG_PYTHON"
+        return 0
+    fi
+    brew_path=$(find_brew 2>/dev/null || true)
+    for minor in 14 13 12; do
+        if [ -n "$brew_path" ]; then
+            prefix=$("$brew_path" --prefix "python@3.$minor" 2>/dev/null || true)
+            if [ -n "$prefix" ] && python_ok "$prefix/bin/python3.$minor"; then
+                printf '%s' "$prefix/bin/python3.$minor"
+                return 0
+            fi
+        fi
+        for directory in /opt/homebrew/bin /usr/local/bin "${HOME:-/nonexistent}/.local/bin" "${HOME:-/nonexistent}/.homebrew/Homebrew/bin"; do
+            if python_ok "$directory/python3.$minor"; then
+                printf '%s' "$directory/python3.$minor"
+                return 0
+            fi
+        done
+        found=$(command -v "python3.$minor" 2>/dev/null || true)
+        if python_ok "$found"; then printf '%s' "$found"; return 0; fi
+    done
+    return 1
+}
+
+local_wheelhouse() {
+    case "$(uname -m)" in
+        arm64) printf '%s' "$LOCAL_ROOT/wheelhouse-macos-arm64" ;;
+        *) printf '%s' "$LOCAL_ROOT/wheelhouse-macos-x64" ;;
+    esac
+}
+
+local_setup() {
+    local_require_project
+    require_macos
+    source_python=$(find_python || true)
+    if [ -z "$source_python" ]; then
+        say "没有找到可用的 Python 3.12 至 3.14。"
+        brew_path=$(find_brew 2>/dev/null || true)
+        if [ -n "$brew_path" ] && confirm "是否用 Homebrew 安装 Python 3.14？" n; then
+            "$brew_path" install python@3.14 || fail "Homebrew 安装 Python 3.14 失败。"
+            source_python=$(find_python || true)
+        fi
+        [ -n "$source_python" ] || fail "请先安装 Python 3.14（brew install python@3.14）后重新运行。"
+    fi
+    say "使用 Python：$source_python"
+    if [ ! -x "$LOCAL_VENV/bin/python" ]; then
+        quiet_run "创建独立运行环境" "$source_python" -m venv "$LOCAL_VENV" || fail "无法创建运行环境：$(short_path "$LOCAL_VENV")"
+    fi
+    venv_python="$LOCAL_VENV/bin/python"
+    "$venv_python" -c 'pass' 2>/dev/null || fail "运行环境已损坏，请删除 $(short_path "$LOCAL_VENV") 后重新安装。"
+    wheelhouse=$(local_wheelhouse)
+    installed=0
+    if [ -d "$wheelhouse" ] && quiet_run "从本地离线包安装依赖" "$venv_python" -m pip install --disable-pip-version-check --no-index --find-links "$wheelhouse" -r "$LOCAL_ROOT/requirements-macos.txt"; then
+        installed=1
+    elif confirm "离线安装没有成功，是否联网安装同版本依赖？" n; then
+        quiet_run "联网安装依赖" "$venv_python" -m pip install --disable-pip-version-check -r "$LOCAL_ROOT/requirements-macos.txt" && installed=1
+    fi
+    [ "$installed" -eq 1 ] || fail "依赖安装未完成。"
+    python_version=$("$venv_python" -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')
+    printf 'python=%s\nrequirements=%s\n' "$python_version" "$(requirements_hash)" > "$LOCAL_DEPS_MARK"
+    say "运行环境已就绪（Python ${python_version}）。"
+}
+
+local_ensure_env() {
+    state=$(local_env_state)
+    [ "$state" != ready ] || return 0
+    case $state in
+        missing) say "运行环境尚未安装。" ;;
+        *) say "依赖清单已变化，运行环境需要更新。" ;;
+    esac
+    confirm "现在安装/更新运行环境？" y || return 1
+    local_setup
+}
+
+local_flask() {
+    (
+        cd "$LOCAL_ROOT"
+        /usr/bin/env \
+            CLOUDNEST_ENV=development \
+            CLOUDNEST_HOST=127.0.0.1 \
+            CLOUDNEST_PORT="$FLASK_PORT" \
+            CLOUDNEST_SITE_URL="http://127.0.0.1:$FLASK_PORT" \
+            PYTHONUNBUFFERED=1 \
+            PYTHONDONTWRITEBYTECODE=1 \
+            "$LOCAL_VENV/bin/python" -m flask --app wsgi:app "$@"
+    )
+}
+
+# 由后台进程或launchd调用：选端口、迁移与检查、再启动服务。
+run_local() {
+    local_require_project
+    [ "$(local_env_state)" = ready ] || fail "运行环境未就绪，请在管理面板选择“安装/修复运行环境”。"
+    local_prepare_dirs
+    FLASK_PORT=$(find_available_port "$(local_pref_port)")
+    printf '%s\n' "$FLASK_PORT" > "$LOCAL_PORT_FILE"
+    say "[bakaimg] $(/bin/date '+%Y-%m-%d %H:%M:%S') 准备启动，端口 $FLASK_PORT"
+    local_flask db upgrade
+    local_flask init-site
+    local_flask system-check
+    local_flask media-check
+    say "[bakaimg] 本地测试地址：http://127.0.0.1:$FLASK_PORT"
+    cd "$LOCAL_ROOT"
+    exec /usr/bin/env \
+        CLOUDNEST_ENV=development \
+        CLOUDNEST_HOST=127.0.0.1 \
+        CLOUDNEST_PORT="$FLASK_PORT" \
+        CLOUDNEST_SITE_URL="http://127.0.0.1:$FLASK_PORT" \
+        PYTHONUNBUFFERED=1 \
+        PYTHONDONTWRITEBYTECODE=1 \
+        "$LOCAL_VENV/bin/python" -m flask --app wsgi:app run --host 127.0.0.1 --port "$FLASK_PORT" --no-debugger --no-reload
+}
+
+# 开机自启检查：模拟launchd的方式读取项目目录。
+probe_access() {
+    cd "$LOCAL_ROOT"
+    [ -r serve.py ] && [ -d instance ] || exit 1
+    if [ -x "$LOCAL_VENV/bin/python" ]; then
+        "$LOCAL_VENV/bin/python" -c "import os; open('serve.py').close(); os.listdir('instance')" || exit 1
+    fi
+}
+
+local_probe_access() {
+    probe_label="$LOCAL_LABEL.probe"
+    probe_plist="$LOCAL_RUNTIME_DIR/$probe_label.plist"
+    local_prepare_dirs
+    render_local_plist "$probe_plist" "$probe_label" probe-access 0
+    "$LAUNCHCTL" bootout "$LOCAL_DOMAIN/$probe_label" >/dev/null 2>&1 || true
+    if ! "$LAUNCHCTL" bootstrap "$LOCAL_DOMAIN" "$probe_plist" >/dev/null 2>&1; then
+        /bin/rm -f "$probe_plist"
+        return 1
+    fi
+    code=""
+    waited=0
+    while [ "$waited" -lt 10 ]; do
+        code=$("$LAUNCHCTL" print "$LOCAL_DOMAIN/$probe_label" 2>/dev/null | /usr/bin/awk -F' = ' '/last exit code/ {print $2; exit}')
+        case $code in ''|*never*) /bin/sleep 1; waited=$((waited + 1)) ;; *) break ;; esac
+    done
+    "$LAUNCHCTL" bootout "$LOCAL_DOMAIN/$probe_label" >/dev/null 2>&1 || true
+    /bin/rm -f "$probe_plist"
+    [ "$code" = 0 ]
+}
+
+spawn_detached() {
+    if [ -x /usr/bin/perl ]; then
+        /usr/bin/nohup /usr/bin/perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' -- "$@" </dev/null >>"$LOCAL_APP_LOG" 2>&1 &
+    else
+        /usr/bin/nohup "$@" </dev/null >>"$LOCAL_APP_LOG" 2>&1 &
+    fi
+    SPAWNED_PID=$!
+}
+
+wait_until_ready() {
+    limit=$1
+    waited=0
+    printf '正在启动'
+    while [ "$waited" -lt "$limit" ]; do
+        current=$(app_pid || true)
+        if [ -n "$current" ]; then
+            if { [ "$MODE" != local ] || [ -f "$LOCAL_PORT_FILE" ]; } && [ -n "$(health_body "$(active_port)")" ]; then printf '\n'; return 0; fi
+        elif [ "$waited" -ge 2 ]; then
+            printf '\n'
+            return 1
+        fi
+        printf '.'
+        /bin/sleep 1
+        waited=$((waited + 1))
+    done
+    printf '\n'
+    return 1
+}
+
+local_start() {
+    local_require_project
+    require_macos
+    current=$(local_app_pid || true)
+    if [ -n "$current" ]; then
+        say "服务已在运行（PID ${current}）：http://127.0.0.1:$(local_active_port)"
+        return 0
+    fi
+    if job_loaded "$(local_job_target)"; then
+        "$LAUNCHCTL" bootout "$(local_job_target)" >/dev/null 2>&1 || true
+    fi
+    local_ensure_env || fail "运行环境未就绪，已取消启动。"
+    local_prepare_dirs
+    /bin/rm -f "$LOCAL_PORT_FILE"
+    spawn_detached /bin/sh "$SELF" run-local
+    printf '%s\n' "$SPAWNED_PID" > "$LOCAL_PID_FILE"
+    if wait_until_ready 45; then
+        say "服务已启动：http://127.0.0.1:$(local_active_port)（PID $(local_app_pid)）"
+        return 0
+    fi
+    say "启动没有成功，最近的日志："
+    /usr/bin/tail -n 15 "$LOCAL_APP_LOG" 2>/dev/null || true
+    /bin/rm -f "$LOCAL_PID_FILE"
+    return 1
+}
+
+local_stop() {
+    stopped=0
+    if job_loaded "$(local_job_target)"; then
+        "$LAUNCHCTL" bootout "$(local_job_target)" >/dev/null 2>&1 || true
+        stopped=1
+    fi
+    direct=$(local_direct_pid || true)
+    if [ -n "$direct" ]; then
+        /bin/kill -TERM "$direct" 2>/dev/null || true
+        waited=0
+        while pid_alive "$direct" && [ "$waited" -lt 20 ]; do
+            /bin/sleep 0.5
+            waited=$((waited + 1))
+        done
+        if pid_alive "$direct"; then /bin/kill -KILL "$direct" 2>/dev/null || true; fi
+        stopped=1
+    fi
+    /bin/rm -f "$LOCAL_PID_FILE"
+    if [ "$stopped" -eq 1 ]; then say "服务已停止。"; else say "服务本来就没有运行。"; fi
+    if local_autostart_on; then say "提示：开机自启仍处于开启状态，下次登录会自动运行。"; fi
+}
+
+local_enable() {
+    local_require_project
+    require_macos
+    local_ensure_env || fail "需要先安装运行环境。"
+    local_prepare_dirs
+    say "正在检查开机自启能否读取项目目录…"
+    if ! local_probe_access; then
+        printf '%s\n' \
+            "无法开启开机自启：macOS 的隐私保护会阻止后台任务读取这个目录。" \
+            "当前位置：$(short_path "$LOCAL_ROOT")" \
+            "" \
+            "任选一种办法后再试一次：" \
+            "  1) 把整个项目文件夹移到不受保护的位置，例如 ~/bakaimg（推荐）；" \
+            "  2) 在“系统设置 → 隐私与安全性 → 完全磁盘访问权限”中添加 /bin/sh 和运行环境里的 python。" \
+            "手动启动、停止不受影响，仍可正常使用。"
+        return 1
+    fi
+    /bin/mkdir -p "$LOCAL_AGENT_DIR"
+    render_local_plist "$(local_agent_file).tmp.$$"
+    /bin/chmod 644 "$(local_agent_file).tmp.$$"
+    /bin/mv -f "$(local_agent_file).tmp.$$" "$(local_agent_file)"
+    "$LAUNCHCTL" enable "$(local_job_target)" >/dev/null 2>&1 || true
+    say "开机自启已开启：下次登录起自动运行（当前运行状态不变）。"
+}
+
+local_disable() {
+    /bin/rm -f "$(local_agent_file)"
+    say "开机自启已关闭（当前运行状态不变，下次登录不会自动运行）。"
+}
+
+# ================================================================ 统一入口
+
+app_pid() {
+    if [ "$MODE" = local ]; then local_app_pid; else job_pid "system/$LABEL"; fi
+}
+
+active_port() {
+    if [ "$MODE" = local ]; then local_active_port; else prod_active_port; fi
+}
+
+autostart_on() {
+    if [ "$MODE" = local ]; then local_autostart_on; else prod_autostart_on; fi
+}
+
+mode_name() {
+    if [ "$MODE" = local ]; then printf '本机运行（当前用户，无需sudo）'; else printf '正式部署（launchd + Nginx）'; fi
+}
+
+service_state() {
+    if job_loaded "$1"; then printf '%s' "运行中"; else printf '%s' "已停止"; fi
+}
+
+enabled_state() {
+    if autostart_on; then printf '%s' "已开启"; else printf '%s' "已关闭"; fi
+}
+
+do_start() {
+    if [ "$MODE" = local ]; then local_start; else prod_start; fi
+}
+
+do_stop() {
+    if [ "$MODE" = local ]; then local_stop; else prod_stop; fi
+}
+
+do_restart() {
+    do_stop
+    do_start
+}
+
+do_enable() {
+    if [ "$MODE" = local ]; then local_enable; else prod_enable; fi
+}
+
+do_disable() {
+    if [ "$MODE" = local ]; then local_disable; else prod_disable; fi
+}
+
+status_banner() {
+    printf '\n%s  ═══ baka图床 · macOS 管理面板 ═══%s\n' "$C_BOLD" "$C_RESET"
+    printf '  %s\n\n' "$(dim "$(mode_name) · 管理器 $VERSION · $(uname -m)")"
+}
+
+show_status_local() {
+    pid=$(local_app_pid || true)
+    preferred=$(local_pref_port)
+    if [ -n "$pid" ]; then
+        port=$(local_active_port)
+        body=$(health_body "$port")
+        if [ -n "$body" ]; then
+            row "运行状态" "$(badge_on "已运行")  PID $pid · 已运行 $(elapsed_of "$pid") · $(local_run_source)"
+            row "访问地址" "http://127.0.0.1:$port"
+            row "运行端口" "${port}（首选 ${preferred}）"
+            row "健康检查" "正常 · 应用版本 $(health_version "$body")"
+        else
+            row "运行状态" "$(badge_warn "启动中或暂未响应")  PID $pid"
+            row "运行端口" "${port}（首选 ${preferred}）"
+            row "健康检查" "尚未通过，可选择 8 查看日志"
+        fi
+    else
+        row "运行状态" "$(badge_off "未运行")"
+        if port_is_free "$preferred"; then
+            row "运行端口" "未运行（首选 ${preferred}，当前空闲）"
+        else
+            row "运行端口" "未运行（首选 $preferred 已被其他程序占用，启动时会自动换用下一个可用端口）"
+        fi
+    fi
+    if local_autostart_on; then
+        if local_autostart_path_ok; then
+            row "开机自启" "$(badge_on "已开启")  登录后自动运行，异常退出自动重启"
+        else
+            row "开机自启" "$(badge_warn "已开启但位置已变化")  请先关闭(5)再重新开启(4)"
+        fi
+    else
+        row "开机自启" "$(badge_off "已关闭")"
+    fi
+    case $(local_env_state) in
+        ready) row "运行环境" "$(badge_on "已就绪")  Python $(local_env_python_version)" ;;
+        outdated) row "运行环境" "$(badge_warn "需要更新")  选择 13 重新安装依赖" ;;
+        *) row "运行环境" "$(badge_off "未安装")  选择 13 一键安装" ;;
+    esac
+    row "项目目录" "$(short_path "$LOCAL_ROOT")"
+    row "日志文件" "$(short_path "$LOCAL_APP_LOG")"
+}
+
+show_status_production() {
+    domain=$(config_get DOMAIN || true)
+    port=$(prod_active_port)
+    app=$(job_pid "system/$LABEL" || true)
+    nginx=$(job_pid "system/$NGINX_LABEL" || true)
+    if [ -n "$app" ]; then
+        body=$(health_body "$port")
+        if [ -n "$body" ]; then
+            row "运行状态" "$(badge_on "已运行")  PID $app · 已运行 $(elapsed_of "$app")"
+        else
+            row "运行状态" "$(badge_warn "启动中或暂未响应")  PID $app"
+        fi
+    elif job_loaded "system/$LABEL"; then
+        row "运行状态" "$(badge_warn "已加载，正在重试启动")  可选择 8 查看日志"
+    else
+        row "运行状态" "$(badge_off "未运行")"
+    fi
+    if [ -n "$nginx" ]; then
+        row "网页代理" "$(badge_on "已运行")  Nginx PID $nginx"
+    else
+        row "网页代理" "$(badge_off "未运行")  Nginx"
+    fi
+    if [ -n "$domain" ]; then row "访问域名" "https://$domain"; else row "访问域名" "尚未设置（选择 13 设置域名与证书）"; fi
+    listener=$(listen_pid "$port")
+    if [ -n "$app" ] && [ -n "$listener" ]; then
+        row "运行端口" "127.0.0.1:${port}（应用监听中）"
+    elif [ -n "$app" ]; then
+        row "运行端口" "127.0.0.1:${port}（等待应用就绪）"
+    elif [ -n "$listener" ]; then
+        row "运行端口" "127.0.0.1:${port}（被其他程序占用，启动时会自动换端口）"
+    else
+        row "运行端口" "127.0.0.1:${port}（未运行）"
+    fi
+    if prod_autostart_on; then
+        row "开机自启" "$(badge_on "已开启")  开机后自动运行，异常退出自动重启"
+    else
+        row "开机自启" "$(badge_off "已关闭")"
+    fi
+    if [ -f "$CERT_FILE" ]; then
+        if /usr/bin/openssl x509 -in "$CERT_FILE" -noout -checkend 2592000 >/dev/null 2>&1; then
+            row "证书状态" "$(badge_on "有效")  $(/usr/bin/openssl x509 -in "$CERT_FILE" -noout -enddate 2>/dev/null | /usr/bin/sed 's/notAfter=/到期：/')"
+        else
+            row "证书状态" "$(badge_warn "30天内到期或已失效")"
+        fi
+    fi
+    row "日志规则" "保留$(config_get RETENTION_DAYS || printf %s "$LOG_RETENTION_DEFAULT")天，单文件$(config_get MAX_SIZE_MIB || printf %s "$LOG_MAX_MIB_DEFAULT")MiB"
+    row "安装目录" "$(config_get PROJECT_ROOT || true)（运行用户 $(config_get RUN_USER || true)）"
+}
+
+show_status() {
+    status_banner
+    if [ "$MODE" = local ]; then show_status_local; else show_status_production; fi
+    printf '\n'
+}
+
+status_json() {
+    port=$(active_port)
+    pid=$(app_pid || true)
+    running=0
+    [ -z "$pid" ] || running=1
+    if [ "$running" -eq 1 ]; then port_state=in_use; elif port_is_free "$port"; then port_state=free; else port_state=in_use; fi
+    autostart=0
+    ! autostart_on || autostart=1
+    healthy=0
+    [ "$running" -eq 0 ] || [ -z "$(health_body "$port")" ] || healthy=1
+    if [ "$MODE" = local ]; then
+        nginx_state="未使用"
+        domain=""
+        days=$LOG_RETENTION_DEFAULT
+        size=$LOG_MAX_MIB_DEFAULT
+        environment=$(local_env_state)
+    else
+        nginx_state=$(service_state "system/$NGINX_LABEL")
+        domain=$(config_get DOMAIN || true)
+        days=$(config_get RETENTION_DAYS || printf %s "$LOG_RETENTION_DEFAULT")
+        size=$(config_get MAX_SIZE_MIB || printf %s "$LOG_MAX_MIB_DEFAULT")
+        environment=production
+    fi
+    if [ "$running" -eq 1 ]; then service_text="运行中"; else service_text="已停止"; fi
+    printf '{"manager":"bakaimg-macos","version":"%s","mode":"%s","service":"%s","running":%s,"healthy":%s,"pid":%s,"nginx":"%s","autostart":"%s","autostart_enabled":%s,"environment":"%s","local_host":"127.0.0.1","local_port":%s,"port_state":"%s","domain":"%s","log_retention_days":%s,"log_max_size_mib":%s}\n' \
+        "$VERSION" "$MODE" "$service_text" "$(json_bool "$running")" "$(json_bool "$healthy")" "$(json_number "$pid")" \
+        "$nginx_state" "$(enabled_state)" "$(json_bool "$autostart")" "$environment" "$port" "$port_state" "$domain" "$days" "$size"
+}
+
+set_port() {
+    [ "$#" -ge 1 ] && valid_port "$1" || fail "端口必须是1024到65535之间的整数。"
+    if [ "$MODE" = local ]; then
+        local_require_project
+        was_running=0
+        [ -z "$(local_app_pid || true)" ] || was_running=1
+        local_set_pref_port "$1"
+        if [ "$was_running" -eq 1 ]; then
+            say "正在按新端口重启服务…"
+            local_stop
+            local_start
+        else
+            say "首选端口已改为 $1（下次启动生效）。"
+        fi
+        return 0
+    fi
+    require_root port
+    was_running=0
+    if job_loaded "system/$LABEL"; then
+        was_running=1
+        bootout_label "$LABEL"
+    fi
+    project_root=$(config_get PROJECT_ROOT); run_user=$(config_get RUN_USER); domain=$(config_get DOMAIN)
+    days=$(config_get RETENTION_DAYS); size=$(config_get MAX_SIZE_MIB); brew_path=$(config_get BREW)
+    write_config "$project_root" "$run_user" "$domain" "$1" "$days" "$size" "$brew_path"
+    prepare_port
+    if [ "$was_running" -eq 1 ]; then prod_start; fi
+    say "当前本地端口：127.0.0.1:$(config_get LOCAL_PORT)"
+}
+
+configure_retention() {
+    require_root retention
+    [ "$#" -ge 2 ] || fail "用法：sudo bakaimg retention 保留天数 单文件MiB"
+    case "$1:$2" in *[!0-9:]*) fail "保留天数和文件大小必须是整数。" ;; esac
+    [ "$1" -ge 1 ] && [ "$1" -le 365 ] || fail "保留天数必须在1到365之间。"
+    [ "$2" -ge 1 ] && [ "$2" -le 1024 ] || fail "单文件大小必须在1到1024MiB之间。"
+    project_root=$(config_get PROJECT_ROOT); run_user=$(config_get RUN_USER); domain=$(config_get DOMAIN)
+    port=$(config_get LOCAL_PORT); brew_path=$(config_get BREW)
+    write_config "$project_root" "$run_user" "$domain" "$port" "$1" "$2" "$brew_path"
+    write_runtime_files
+    say "日志规则已更新。"
+}
+
+maintenance() {
+    if [ "$MODE" = local ]; then
+        rotate_dir=$LOCAL_LOG_DIR
+        days=$LOG_RETENTION_DEFAULT
+        size_mib=$LOG_MAX_MIB_DEFAULT
+        rotate_files="bakaimg-macos.log"
+    else
+        require_root maintenance
+        rotate_dir=$LOG_DIR
+        days=$(config_get RETENTION_DAYS || printf %s "$LOG_RETENTION_DEFAULT")
+        size_mib=$(config_get MAX_SIZE_MIB || printf %s "$LOG_MAX_MIB_DEFAULT")
+        rotate_files="app.log error.log access.log nginx-error.log nginx-launch.log maintenance.log maintenance-error.log"
+    fi
+    max_bytes=$((size_mib * 1024 * 1024))
+    timestamp=$(/bin/date '+%Y%m%d-%H%M%S')
+    rotated=0
+    for log_file in $rotate_files; do
+        source_path="$rotate_dir/$log_file"
+        [ -f "$source_path" ] || continue
+        bytes=$(/usr/bin/stat -f '%z' "$source_path" 2>/dev/null || printf 0)
+        [ "$bytes" -ge "$max_bytes" ] || continue
+        archive_path="$source_path.$timestamp"
+        /bin/cp -p "$source_path" "$archive_path"
+        : > "$source_path"
+        /usr/bin/gzip -f "$archive_path"
+        rotated=$((rotated + 1))
+    done
+    /usr/bin/find "$rotate_dir" -type f -name '*.log.*.gz' -mtime "+$days" -delete 2>/dev/null || true
+    say "日志整理完成（保留${days}天，单文件超过${size_mib}MiB时压缩归档，本次归档${rotated}个）。"
+}
+
+show_logs() {
+    [ "$MODE" = local ] || require_root logs
+    lines=${1:-120}
+    case "$lines" in ''|*[!0-9]*) fail "日志行数必须是整数。" ;; esac
+    if [ "$MODE" = local ]; then
+        if [ -f "$LOCAL_APP_LOG" ]; then /usr/bin/tail -n "$lines" "$LOCAL_APP_LOG"; else say "还没有日志。"; fi
+    else
+        /usr/bin/tail -n "$lines" "$LOG_DIR/app.log" "$LOG_DIR/error.log" "$LOG_DIR/nginx-error.log" 2>/dev/null || say "还没有日志。"
+    fi
+}
+
+restore_interrupt() {
+    if [ "$MENU_ACTIVE" = 1 ]; then trap 'printf "\n"; exit 0' INT; else trap - INT; fi
+}
+
+follow_logs() {
+    [ "$MODE" = local ] || require_root follow
+    trap ':' INT
+    if [ "$MODE" = local ]; then
+        local_prepare_dirs
+        : >> "$LOCAL_APP_LOG"
+        say "实时日志：$(short_path "$LOCAL_APP_LOG")（按 Ctrl+C 返回）"
+        /usr/bin/tail -n 30 -f "$LOCAL_APP_LOG" || true
+    else
+        say "实时日志（按 Ctrl+C 返回）"
+        /usr/bin/tail -n 30 -f "$LOG_DIR/app.log" "$LOG_DIR/error.log" "$LOG_DIR/nginx-error.log" 2>/dev/null || true
+    fi
+    restore_interrupt
+}
+
+open_site() {
+    if [ "$MODE" = local ]; then
+        [ -n "$(local_app_pid || true)" ] || fail "服务没有运行，请先启动。"
+        /usr/bin/open "http://127.0.0.1:$(local_active_port)"
+        say "已在浏览器中打开。"
+    else
+        require_root open
+        domain=$(config_get DOMAIN || true)
+        [ -n "$domain" ] || fail "尚未设置访问域名。"
+        run_as_user "$(config_get RUN_USER)" /usr/bin/open "https://$domain"
+        say "已在浏览器中打开 https://$domain"
+    fi
+}
+
+backup_now() {
+    if [ "$MODE" = local ]; then
+        local_require_project
+        local_ensure_env || fail "需要先安装运行环境。"
+        FLASK_PORT=$(local_active_port)
+        local_flask backup-create
+    else
+        require_root backup
+        prod_flask backup-create
+    fi
+}
+
+recovery_link() {
+    [ "$MODE" = local ] || fail "本机恢复链接只在本机运行方式下提供；正式部署请使用 flask local-recovery-link。"
+    local_require_project
+    local_ensure_env || fail "需要先安装运行环境。"
+    FLASK_PORT=$(local_active_port)
+    output=$(local_flask local-recovery-link) || fail "无法生成恢复链接。"
+    link=$(printf '%s\n' "$output" | /usr/bin/sed -n 's/^RECOVERY_URL=//p' | /usr/bin/head -n 1)
+    [ -n "$link" ] || fail "无法生成恢复链接。"
+    link=$(printf '%s' "$link" | /usr/bin/sed "s#^http://127.0.0.1:[0-9]*/#http://127.0.0.1:$FLASK_PORT/#")
+    say "本机管理员恢复链接（5分钟内有效，只能使用一次）："
+    say "$link"
+    [ -n "$(local_app_pid || true)" ] || say "提示：服务当前没有运行，请先启动再打开链接。"
+}
+
+doctor_check() {
+    label=$1
+    shift
+    if "$@" >/dev/null 2>&1; then
+        printf '  %s %s\n' "$(badge_on "正常")" "$label"
+    else
+        printf '  %s %s\n' "$(badge_off "异常")" "$label"
+        DOCTOR_FAILED=1
+    fi
+}
+
+local_files_ok() {
+    [ -f "$LOCAL_ROOT/serve.py" ] && [ -f "$LOCAL_ROOT/wsgi.py" ] && [ -d "$LOCAL_ROOT/app" ] && [ -d "$LOCAL_ROOT/migrations" ]
+}
+
+doctor_local() {
+    require_macos
+    DOCTOR_FAILED=0
+    say "本机运行检查："
+    doctor_check "项目文件完整（serve.py / wsgi.py / app / migrations）" local_files_ok
+    doctor_check "离线依赖目录：$(basename "$(local_wheelhouse)")" test -d "$(local_wheelhouse)"
+    doctor_check "Python 3.12–3.14：$(find_python || printf 未找到)" find_python
+    doctor_check "运行环境：$(local_env_state)" test "$(local_env_state)" = ready
+    doctor_check "数据目录可写：$(short_path "$LOCAL_ROOT/instance")" test -w "$LOCAL_ROOT/instance"
+    if [ -f "$LOCAL_ROOT/instance/data/cloudnest.db" ]; then
+        printf '  %s 数据库文件存在\n' "$(badge_on "正常")"
+    else
+        printf '  %s 数据库尚未创建（首次启动时自动创建）\n' "$(badge_warn "提示")"
+    fi
+    if protected_location "$LOCAL_ROOT"; then
+        printf '  %s 项目位于受系统隐私保护的目录，开机自启可能被拦截（手动启动不受影响）\n' "$(badge_warn "提示")"
+    fi
+    pid=$(local_app_pid || true)
+    if [ -n "$pid" ]; then
+        body=$(health_body "$(local_active_port)")
+        doctor_check "服务健康检查" test -n "$body"
+        ready=$(/usr/bin/curl -s -m 3 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$(local_active_port)/readyz" 2>/dev/null || true)
+        doctor_check "就绪检查（readyz=${ready}）" test "$ready" = 200
+    else
+        printf '  %s 服务未运行，跳过在线检查\n' "$(badge_warn "提示")"
+    fi
+    return "$DOCTOR_FAILED"
+}
+
+doctor_production() {
+    require_macos
+    failed=0
+    for item in "$CONFIG_FILE" "$ENV_FILE" "$NGINX_FILE" "$CERT_FILE" "$KEY_FILE"; do
+        if [ -f "$item" ]; then say "正常：$item"; else say "缺少：$item"; failed=1; fi
+    done
+    project_root=$(config_get PROJECT_ROOT || true)
+    if [ -x "$project_root/.venv/bin/python" ]; then say "正常：Python运行环境"; else say "缺少：Python运行环境"; failed=1; fi
+    brew_path=$(config_get BREW || true)
+    if [ -n "$brew_path" ] && [ -x "$brew_path" ]; then
+        nginx_bin="$(brew_value "$brew_path" --prefix nginx)/bin/nginx"
+        "$nginx_bin" -t -c "$NGINX_FILE" || failed=1
+    else
+        say "缺少：Homebrew"
+        failed=1
+    fi
+    show_status
+    return "$failed"
+}
+
+doctor() {
+    if [ "$MODE" = local ]; then doctor_local; else require_root doctor; doctor_production; fi
+}
+
+render_test() {
+    [ "$#" -ge 5 ] || fail "render-test需要：输出目录 域名 端口 项目目录 Homebrew路径"
+    render_dir=$1; domain=$(normalize_domain "$2"); port=$3; project_root=$4; brew_path=$5
+    valid_port "$port" || fail "测试端口无效。"
+    /bin/mkdir -p "$render_dir"
+    old_config_dir=$CONFIG_DIR; old_log_dir=$LOG_DIR; old_cert=$CERT_FILE; old_key=$KEY_FILE; old_nginx=$NGINX_FILE
+    CONFIG_DIR="$render_dir/config"; LOG_DIR="$render_dir/logs"; CERT_FILE="$CONFIG_DIR/tls/origin.pem"; KEY_FILE="$CONFIG_DIR/tls/origin.key"; NGINX_FILE="$CONFIG_DIR/nginx.conf"
+    render_environment "$render_dir/bakaimg.env" "$domain" "$port" test-secret-not-for-production
+    render_nginx "$render_dir/nginx.conf" "$domain" "$port" "$brew_path"
+    render_app_plist "$render_dir/$LABEL.plist" /usr/local/bin/bakaimg "$project_root"
+    render_nginx_plist "$render_dir/$NGINX_LABEL.plist" "$(brew_value "$brew_path" --prefix nginx)/bin/nginx"
+    render_maintenance_plist "$render_dir/$MAINTENANCE_LABEL.plist" /usr/local/bin/bakaimg
+    LOCAL_APP_LOG="$render_dir/logs/bakaimg-macos.log"
+    LOCAL_ROOT=$project_root
+    render_local_plist "$render_dir/$LOCAL_LABEL.plist"
+    CONFIG_DIR=$old_config_dir; LOG_DIR=$old_log_dir; CERT_FILE=$old_cert; KEY_FILE=$old_key; NGINX_FILE=$old_nginx
+    say "$render_dir"
+}
+
+port_test() {
+    [ "$#" -ge 1 ] || fail "port-test需要一个首选端口。"
+    valid_port "$1" || fail "测试端口无效。"
+    find_available_port "$1"
+    printf '\n'
+}
+
+# ---------------------------------------------------------------- 菜单
+
+menu_banner() {
+    [ ! -t 1 ] || /usr/bin/clear 2>/dev/null || true
+    show_status
+    printf '  %s\n' "$(dim "── 运行 ──────────────────────────────")"
+    printf '   1  启动服务\n   2  停止服务\n   3  重新启动\n'
+    printf '  %s\n' "$(dim "── 开机自启 ──────────────────────────")"
+    printf '   4  开启开机自启\n   5  关闭开机自启\n'
+    printf '  %s\n' "$(dim "── 常用工具 ──────────────────────────")"
+    printf '   6  修改端口\n   7  在浏览器中打开\n   8  查看日志（最近120行）\n   9  实时日志（Ctrl+C 返回）\n'
+    printf '  10  创建数据备份\n  11  整理日志\n  12  运行检查\n'
+    if [ "$MODE" = local ]; then
+        printf '  %s\n' "$(dim "── 本机环境 ──────────────────────────")"
+        printf '  13  安装/修复运行环境\n  14  生成本机管理员恢复链接\n'
+    else
+        printf '  %s\n' "$(dim "── 正式部署 ──────────────────────────")"
+        printf '  13  更新域名与证书\n  14  修改日志规则\n'
+    fi
+    printf '   0  退出        %s\n\n' "$(dim "直接回车 = 刷新状态")"
+}
+
+menu_action() {
+    # 单个操作失败不应该让面板退出；关闭外层 -e，让子进程内部的 -e 仍然生效。
+    set +e
+    ( set -e; "$@" )
+    action_status=$?
+    set -e
+    if [ "$action_status" -ne 0 ]; then printf '%s操作没有完成。%s\n' "$C_YELLOW" "$C_RESET"; fi
+    return 0
+}
+
+menu() {
+    MENU_ACTIVE=1
+    trap 'printf "\n"; exit 0' INT
+    while :; do
+        menu_banner
+        printf '请选择：'
+        IFS= read -r choice || { printf '\n'; exit 0; }
+        printf '\n'
+        case "$choice" in
+            '') continue ;;
+            1) menu_action do_start ;;
+            2) menu_action do_stop ;;
+            3) menu_action do_restart ;;
+            4) menu_action do_enable ;;
+            5) menu_action do_disable ;;
+            6)
+                printf '首选端口（1024-65535，当前 %s，直接回车取消）：' "$(active_port)"
+                IFS= read -r value || value=""
+                if [ -n "$value" ]; then menu_action set_port "$value"; else say "已取消。"; fi
+                ;;
+            7) menu_action open_site ;;
+            8) menu_action show_logs 120 ;;
+            9) follow_logs ;;
+            10) menu_action backup_now ;;
+            11) menu_action maintenance ;;
+            12) menu_action doctor ;;
+            13)
+                if [ "$MODE" = local ]; then
+                    menu_action local_setup
+                else
+                    printf '唯一访问域名：'; IFS= read -r d || d=""
+                    printf '源站证书PEM路径：'; IFS= read -r c || c=""
+                    printf '源站私钥PEM路径：'; IFS= read -r k || k=""
+                    menu_action configure_tls "$d" "$c" "$k"
+                fi
+                ;;
+            14)
+                if [ "$MODE" = local ]; then
+                    menu_action recovery_link
+                else
+                    printf '保留天数：'; IFS= read -r d || d=""
+                    printf '单文件最大MiB：'; IFS= read -r s || s=""
+                    menu_action configure_retention "$d" "$s"
+                fi
+                ;;
+            0|q|Q) exit 0 ;;
+            *) say "请输入列表中的编号。" ;;
+        esac
+        pause_panel
+    done
+}
+
+usage() {
+    cat <<EOF
+bakaimg macOS 管理面板 $VERSION
+
+用法：bakaimg-macos [命令]        （不带命令时打开数字管理面板）
+  menu                   打开数字管理面板
+  status | --status-json 查看运行状态、端口与开机自启
+  start | stop | restart 启动、停止、重新启动服务
+  enable | disable       开启、关闭开机自启（不影响当前运行）
+  port 端口              修改首选端口
+  open                   在浏览器中打开网站
+  logs [行数] | follow   查看日志 / 实时跟踪日志
+  backup                 创建并校验数据备份
+  maintenance            立即整理日志
+  doctor                 运行检查
+
+本机运行（在项目目录中，无需sudo）：
+  setup                  安装/修复运行环境
+  recovery               生成本机管理员恢复链接
+  可用 BAKAIMG_PYTHON 指定 Python，BAKAIMG_VENV_DIR 指定运行环境目录。
+
+正式部署（sudo bakaimg ...）：
+  install [域名 证书 私钥]  安装或更新
+  configure 域名 证书 私钥 设置唯一域名与源站证书
+  retention 天数 MiB        修改日志保留规则
+EOF
+}
+
+elevate() {
+    # BAKAIMG_NO_ELEVATE 仅供自动化测试读取状态；所有写操作仍会各自检查管理员权限。
+    [ -z "${BAKAIMG_NO_ELEVATE:-}" ] || return 0
+    if [ "$MODE" = production ] && [ "$(id -u)" -ne 0 ]; then
+        say "正式部署的管理需要管理员权限，请输入本机密码。"
+        exec /usr/bin/sudo -H /bin/sh "$SELF" "$command" "$@"
+    fi
+}
+
+require_mode() {
+    wanted=$1
+    shift
+    [ "$MODE" = "$wanted" ] && return 0
+    if [ "$wanted" = production ]; then
+        fail "“$*”只在正式部署方式下可用（需要先运行 sudo sh deploy-macos.sh）。"
+    fi
+    fail "“$*”只在本机运行方式下可用。"
+}
+
+# ---------------------------------------------------------------- 入口
+
+SELF=$(resolve_self "$0")
+SELF_DIR=$(/usr/bin/dirname "$SELF")
+LOCAL_ROOT=$SELF_DIR
+
+case ${BAKAIMG_MODE:-} in
+    local|production) MODE=$BAKAIMG_MODE ;;
+    *) if [ -f "$CONFIG_FILE" ]; then MODE=production; else MODE=local; fi ;;
+esac
+
+LOCAL_LABEL="${BAKAIMG_LOCAL_LABEL:-com.saubaka.bakaimg.local}"
+LOCAL_AGENT_DIR="${BAKAIMG_LOCAL_LAUNCH_DIR:-${HOME:-/var/root}/Library/LaunchAgents}"
+LOCAL_RUNTIME_DIR="$LOCAL_ROOT/instance/runtime"
+LOCAL_LOG_DIR="$LOCAL_ROOT/instance/logs"
+LOCAL_CONF="$LOCAL_RUNTIME_DIR/macos-local.conf"
+LOCAL_PORT_FILE="$LOCAL_RUNTIME_DIR/macos-local.port"
+LOCAL_PID_FILE="$LOCAL_RUNTIME_DIR/macos-local.pid"
+LOCAL_APP_LOG="$LOCAL_LOG_DIR/bakaimg-macos.log"
+LOCAL_VENV="${BAKAIMG_VENV_DIR:-$LOCAL_ROOT/.venv-macos}"
+LOCAL_DEPS_MARK="$LOCAL_VENV/.bakaimg-deps"
+LOCAL_DOMAIN="gui/$(/usr/bin/id -u)"
+FLASK_PORT=$PORT_DEFAULT
+MENU_ACTIVE=0
+
+setup_colors
+
+command=${1:-menu}
+[ "$#" -eq 0 ] || shift
+case "$command" in
+    menu|status|--status-json|start|stop|restart|enable|disable|port|open|logs|follow|backup|maintenance|doctor|retention|configure)
+        elevate "$@" ;;
+esac
+
+case "$command" in
+    menu) menu ;;
+    install) require_mode production install; install_runtime "$@" ;;
+    configure) require_mode production configure; require_root configure; configure_tls "$@" ;;
+    status) show_status ;;
+    --status-json) status_json ;;
+    start) do_start ;;
+    stop) do_stop ;;
+    restart) do_restart ;;
+    enable) do_enable ;;
+    disable) do_disable ;;
+    port) set_port "$@" ;;
+    open) open_site ;;
+    logs) show_logs "$@" ;;
+    follow) follow_logs ;;
+    backup) backup_now ;;
+    retention) require_mode production retention; configure_retention "$@" ;;
+    maintenance) maintenance ;;
+    doctor) doctor ;;
+    setup) require_mode local setup; local_setup ;;
+    recovery) require_mode local recovery; recovery_link ;;
+    run-local) require_mode local run-local; run_local ;;
+    probe-access) require_mode local probe-access; probe_access ;;
+    prepare-port) require_mode production prepare-port; prepare_port ;;
+    run-service) require_mode production run-service; run_service ;;
+    render-test) render_test "$@" ;;
+    port-test) port_test "$@" ;;
+    --version|-V) say "$VERSION" ;;
+    -h|--help|help) usage ;;
+    *) usage >&2; exit 2 ;;
+esac

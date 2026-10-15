@@ -1,27 +1,30 @@
 {% extends "layouts/site.html" %}
-{% block title %}{{ image.title or image.original_name }} · {{ site_name }}{% endblock %}
+{% from 'components/media.html' import picture, visibility %}
+{% block title %}{{ site_name }}｜{{ image.title or image.original_name }}{% endblock %}
 {% block content %}
   <div class="page-shell share-page">
-    <section class="share-stage card" data-reveal><img src="{{ url_for('images.media', public_id=image.public_id, variant='original') }}" alt="{{ image.alt_text or image.title }}" width="{{ image.width }}" height="{{ image.height }}"></section>
-    <aside class="share-sidebar">
-      <section class="card share-copy" data-reveal>
-        <span class="eyebrow">{{ {'private': '仅自己', 'unlisted': '通过链接分享', 'public': '公开图片'}[image.visibility] }}</span>
-        <h1>{{ image.title or image.original_name }}</h1>
-        {% if image.alt_text %}<p>{{ image.alt_text }}</p>{% endif %}
-        <div class="creator-link"><span class="soft-avatar soft-avatar--small">{{ image.owner.display_name[:1] }}</span><span><strong>{{ image.owner.display_name }}</strong><small>@{{ image.owner.username }}</small></span></div>
-        <dl><div><dt>尺寸</dt><dd>{{ image.width }} × {{ image.height }}</dd></div><div><dt>类型</dt><dd>{{ image.image_format }}</dd></div><div><dt>浏览</dt><dd>{{ image.view_count }}</dd></div></dl>
-        <label class="copy-field"><span>分享页面</span><span><input value="{{ url_for('public.share_image', public_id=image.public_id, _external=true) }}" readonly data-copy-source><button class="button button--soft button--small" type="button" data-copy-button>复制</button></span></label>
-        <label class="copy-field"><span>原图链接</span><span><input value="{{ url_for('images.media', public_id=image.public_id, variant='original', _external=true) }}" readonly data-copy-source><button class="button button--soft button--small" type="button" data-copy-button>复制</button></span></label>
+    <section class="share-stage" data-reveal>{{ picture(image, 'original', eager=true) }}</section>
+    <aside class="share-side" data-reveal>
+      <div class="share-side__head">
+        <span class="ba-badge{{ ' ba-badge--ok' if image.visibility == 'public' }}">{{ {'private': '仅自己', 'unlisted': '通过链接分享', 'public': '公开图片'}[image.visibility] }}</span>
+        <h1 class="ba-title">{{ image.title or image.original_name }}</h1>
+        {% if image.alt_text %}<p class="ba-lead">{{ image.alt_text }}</p>{% endif %}
+        <div class="creator-link"><span class="ba-avatar">{{ image.owner.display_name[:1] }}</span><span><strong>{{ image.owner.display_name }}</strong><small>@{{ image.owner.username }}</small></span></div>
+      </div>
+      <dl class="facts"><div><dt>尺寸</dt><dd>{{ image.width }} × {{ image.height }}</dd></div><div><dt>类型</dt><dd>{{ image.image_format }}</dd></div><div><dt>浏览</dt><dd>{{ image.view_count }}</dd></div></dl>
+      <label class="copy-field ba-field"><span>分享页面</span><span><input class="ba-input" value="{{ url_for('public.share_image', public_id=image.public_id, _external=true) }}" readonly data-copy-source><button class="ba-button ba-button--soft u-compact" type="button" data-copy-button>复制</button></span></label>
+      <label class="copy-field ba-field"><span>原图链接</span><span><input class="ba-input" value="{{ url_for('images.media', public_id=image.public_id, variant='original', _external=true) }}" readonly data-copy-source><button class="ba-button ba-button--soft u-compact" type="button" data-copy-button>复制</button></span></label>
+      <div class="share-side__actions">
         {% if image.visibility == 'public' %}
           {% if current_user.is_authenticated and current_user.has_permission('favorites.manage') %}
-            <form method="post" action="{{ url_for('public.toggle_favorite', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="button {{ 'button--danger' if is_favorite else 'button--primary' }} button--full" type="submit">{{ '移出收藏 ♡' if is_favorite else '收藏这张图片 ♡' }}</button></form>
+            <form method="post" data-favorite-form data-favorite-state="{{ 'remove' if is_favorite else 'add' }}" action="{{ url_for('public.toggle_favorite', public_id=image.public_id) }}">{{ empty_form.hidden_tag() }}<button class="ba-button{{ ' ba-button--soft' if is_favorite }} u-full" type="submit">{{ '移出收藏' if is_favorite else '收藏图片' }}</button><small class="ba-field__error" role="status" hidden data-favorite-error></small></form>
           {% elif not current_user.is_authenticated %}
-            {% if gateway_enabled %}<a class="button button--soft button--full" href="{{ url_for('gateway.login', next=request.path) }}">登录后收藏</a>{% endif %}
+            <a class="ba-button ba-button--soft u-full" href="{{ url_for('auth.login', next=request.path) }}">登录后收藏</a>
           {% endif %}
         {% endif %}
-        {% if current_user.is_authenticated and current_user.id == image.owner_id %}<a class="button button--soft button--full" href="{{ url_for('images.detail', public_id=image.public_id) }}">管理这张图片</a>{% endif %}
-      </section>
-      {% if related_albums %}<section class="card share-copy" data-reveal><span class="eyebrow">相关相册</span><h2>它也住在这些相册</h2><div class="related-list">{% for album in related_albums %}<a href="{{ url_for('public.album_detail', public_id=album.public_id) }}"><strong>{{ album.title }}</strong><small>{{ album.items|length }} 张 · @{{ album.owner.username }}</small></a>{% endfor %}</div></section>{% endif %}
+        {% if current_user.is_authenticated and current_user.id == image.owner_id %}<a class="ba-button ba-button--soft u-full" href="{{ url_for('images.detail', public_id=image.public_id) }}">管理这张图片</a>{% endif %}
+      </div>
+      {% if related_albums %}<div class="related-list"><h2 class="ba-heading">所在相册</h2>{% for album in related_albums %}<a href="{{ url_for('public.album_detail', public_id=album.public_id) }}"><strong>{{ album.title }}</strong><small>{{ album.items|length }} 张 · @{{ album.owner.username }}</small></a>{% endfor %}</div>{% endif %}
     </aside>
   </div>
 {% endblock %}

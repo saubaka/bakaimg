@@ -1,0 +1,141 @@
+{% extends "layouts/site.html" %}
+{% from 'components/media.html' import picture %}
+{% from 'components/macros.html' import empty_art, icon, stat %}
+{% block title %}{{ site_name }}｜仪表盘{% endblock %}
+{% block content %}
+  {% set quota_percent = ((used_bytes * 100 / quota_bytes)|round|int) if quota_bytes else 0 %}
+  <div class="page-shell dashboard-page">
+    <header class="page-head" data-reveal>
+      <div>
+        <h1 class="ba-title">仪表盘</h1>
+        <p class="page-head__meta">你好，{{ current_user.display_name }}。这里是你的图片空间。</p>
+      </div>
+    </header>
+
+    <section class="home-section dashboard-first" aria-label="我的空间">
+      <div class="stat-grid">
+        {{ stat('我的图片', stats.images, '正在使用的图片', 'image') }}
+        {{ stat('我的相册', stats.albums, '整理成册的相册', 'album') }}
+        {{ stat('我的收藏', stats.favorites, '喜欢的公开图片', 'heart') }}
+        {{ stat('已用空间', format_bytes(stats.bytes), '原图和预览图', 'database') }}
+      </div>
+    </section>
+
+    <section class="home-section" aria-label="常用功能">
+      <div class="section-head"><h2 class="ba-heading">常用功能</h2></div>
+      <div class="bento">
+        <a class="bento-card bento-card--feature bento-card--tall" href="{{ url_for('images.upload') }}">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('plus') }}</span>
+          <h3>上传图片</h3>
+          <p>选好图片再确认上传，实时显示进度。上传前先决定谁能看，默认只有自己。</p>
+          <ul class="chip-row" aria-label="支持的格式"><li>JPEG</li><li>PNG</li><li>WebP</li><li>GIF</li></ul>
+          <span class="bento-card__more">开始上传</span>
+        </a>
+        <a class="bento-card" href="{{ url_for('images.library') }}">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('image') }}</span>
+          <h3>我的图库</h3>
+          <p>筛选、续载，回收站里可以恢复。</p>
+        </a>
+        <a class="bento-card" href="{{ url_for('images.albums') }}">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('album') }}</span>
+          <h3>我的相册</h3>
+          <p>选图、排序，整理成册再分享。</p>
+        </a>
+        <a class="bento-card" href="{{ url_for('public.favorites') }}">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('heart') }}</span>
+          <h3>我的收藏</h3>
+          <p>找回喜欢的公开图片。</p>
+        </a>
+        <article class="bento-card bento-card--wide">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('database') }}</span>
+          <h3>空间使用</h3>
+          <div class="quota-meter" aria-label="空间使用">
+            <progress max="100" value="{{ quota_percent }}">{{ quota_percent }}%</progress>
+            <small>{{ format_bytes(used_bytes) }} / {{ format_bytes(quota_bytes) }}，已用{{ '不到 1' if used_bytes and quota_percent < 1 else quota_percent }}%</small>
+          </div>
+          <p>{{ used_count }} 张图片{% if quota_count %}，上限 {{ quota_count }} 张{% endif %}。回收站里的图片也占用空间。</p>
+        </article>
+        <a class="bento-card" href="{{ url_for('public.discover') }}">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('search') }}</span>
+          <h3>发现</h3>
+          <p>浏览大家公开的图片和相册。</p>
+        </a>
+        <article class="bento-card bento-card--wide">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('link') }}</span>
+          <h3>图片的可见范围</h3>
+          <ul class="mini-list">
+            <li><strong>仅自己</strong><span>{{ by_visibility.private }} 张</span></li>
+            <li><strong>通过链接</strong><span>{{ by_visibility.unlisted }} 张</span></li>
+            <li><strong>公开展示</strong><span>{{ by_visibility.public }} 张</span></li>
+          </ul>
+        </article>
+        <article class="bento-card bento-card--wide">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('key') }}</span>
+          <h3>账号与工具</h3>
+          <p>用应用钥匙让程序替你上传，需要时在这里管理。</p>
+          <div class="dashboard-tools">
+            {% if current_user.has_permission('api.tokens.manage') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('auth.api_tokens') }}">应用钥匙</a>{% endif %}
+            {% if current_user.has_permission('admin.access') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('admin.dashboard') }}">管理后台</a>{% endif %}
+            <a class="ba-button ba-button--soft u-compact" href="{{ url_for('public.terms') }}">服务政策</a>
+          </div>
+        </article>
+        <article class="bento-card bento-card--full bento-card--code">
+          <span class="bento-card__icon" aria-hidden="true">{{ icon('spark') }}</span>
+          <h3>用程序上传</h3>
+          <p>在“应用钥匙”里创建钥匙，勾选用途、设置有效期，随时收回。完整钥匙只显示一次。</p>
+          <pre class="code-block" aria-label="接口示例"><code>curl -H "Authorization: Bearer 你的应用钥匙" \
+  -F "image=@photo.png" -F "visibility=private" \
+  {{ request.host_url.rstrip('/') }}/api/v1/images/</code></pre>
+        </article>
+      </div>
+    </section>
+
+    <section class="home-section" aria-label="最近上传">
+      <div class="section-head"><h2 class="ba-heading">最近上传</h2><a href="{{ url_for('images.library') }}">打开图库</a></div>
+      {% if my_images %}
+        <div class="tile-grid tile-grid--four">
+          {% for image in my_images %}
+            <article class="tile">
+              {{ picture(image, href=url_for('images.detail', public_id=image.public_id)) }}
+              <div class="tile__body"><strong>{{ image.title or image.original_name }}</strong><span class="tile__meta">{{ {'private': '仅自己', 'unlisted': '通过链接', 'public': '公开'}[image.visibility] }} · {{ image.width }}×{{ image.height }}</span></div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="ba-empty">{{ empty_art() }}<p>还没有上传过图片，放进第一张吧。</p><a class="ba-button" href="{{ url_for('images.upload') }}">上传第一张</a></div>
+      {% endif %}
+    </section>
+
+    <section class="home-section" aria-label="我的相册">
+      <div class="section-head"><h2 class="ba-heading">我的相册</h2><a href="{{ url_for('images.albums') }}">管理相册</a></div>
+      {% if my_albums %}
+        <div class="tile-grid tile-grid--four">
+          {% for album in my_albums %}
+            <article class="tile album-tile">
+              <div class="album-cover">{% if album.cover_image %}{{ picture(album.cover_image, href=url_for('images.edit_album', public_id=album.public_id)) }}{% else %}<a href="{{ url_for('images.edit_album', public_id=album.public_id) }}" aria-label="{{ album.title }}">{{ icon('album') }}</a>{% endif %}</div>
+              <div class="tile__body"><strong><a href="{{ url_for('images.edit_album', public_id=album.public_id) }}">{{ album.title }}</a></strong><span class="tile__meta">{{ album.items|length }} 张</span></div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="ba-empty">{{ empty_art() }}<p>还没有相册，勾选几张图片就能建一本。</p><a class="ba-button ba-button--soft" href="{{ url_for('images.create_album') }}">新建相册</a></div>
+      {% endif %}
+    </section>
+
+    <section class="home-section" aria-label="最近收藏">
+      <div class="section-head"><h2 class="ba-heading">最近收藏</h2><a href="{{ url_for('public.favorites') }}">全部收藏</a></div>
+      {% if favorites %}
+        <div class="tile-grid tile-grid--four">
+          {% for favorite in favorites %}
+            <article class="tile">
+              {{ picture(favorite.image, href=url_for('public.share_image', public_id=favorite.image.public_id)) }}
+              <div class="tile__body"><strong>{{ favorite.image.title or favorite.image.original_name }}</strong><span class="tile__meta">@{{ favorite.image.owner.username }}</span></div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="ba-empty">{{ empty_art() }}<p>收藏夹还是空的，在公开图片的分享页选择收藏，就能在这里找到。</p><a class="ba-button ba-button--soft" href="{{ url_for('public.discover') }}">去发现画面</a></div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

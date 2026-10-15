@@ -3,3 +3,41 @@
     <use href="{{ url_for('static', filename='icons/sprite.svg', v=app_version) }}#icon-{{ name }}"></use>
   </svg>
 {%- endmacro %}
+
+{% macro check_choices(control, disabled=false) -%}
+  {% for choice in control %}
+    <label class="check-field" for="{{ choice.id }}"><input type="checkbox" id="{{ choice.id }}" name="{{ control.name }}" value="{{ choice.data }}" {{ 'checked' if choice.checked }} {{ 'disabled' if disabled }}><span>{{ choice.label.text }}</span></label>
+  {% endfor %}
+{%- endmacro %}
+
+{% macro field(control, autocomplete='', placeholder='', class_name='', autofocus=false, password=false) -%}
+  <label class="ba-field {{ class_name }}" for="{{ control.id }}">
+    <span data-field-label>{{ control.label.text }}</span>
+    {% if password %}<span class="password-control">{% endif %}
+    {{ control(autocomplete=autocomplete, placeholder=placeholder, autofocus=autofocus, aria_invalid='true' if control.errors else 'false', aria_describedby=control.id ~ '-error', **kwargs) }}
+    {% if password %}<button class="password-control__toggle" type="button" data-password-toggle aria-controls="{{ control.id }}" aria-pressed="false" aria-label="显示{{ control.label.text }}" hidden>显示</button></span>{% endif %}
+    <small class="ba-field__error" id="{{ control.id }}-error" aria-live="polite">{{ control.errors|join(' ') }}</small>
+  </label>
+{%- endmacro %}
+
+{# 空状态插画：与设计系统的信封同一套形状，换成相框，属于新增。页面的内容安全策略不允许行内样式，颜色走类名。 #}
+{% macro empty_art() -%}
+  <svg viewBox="0 0 104 88" aria-hidden="true" focusable="false">
+    <rect class="art-sky-200" x="8" y="10" width="88" height="68" rx="22"/>
+    <path class="art-sky-100" d="M8 56 34 36a14 14 0 0 1 17 0l15 11 8-6a14 14 0 0 1 17 1l5 4v8a22 22 0 0 1-22 22H30A22 22 0 0 1 8 74z"/>
+    <circle class="art-butter-300" cx="70" cy="30" r="8"/>
+    <circle class="art-ink" cx="42" cy="62" r="2.4"/>
+    <circle class="art-ink" cx="62" cy="62" r="2.4"/>
+    <path class="art-smile" d="M47 67q5 4 10 0"/>
+    <circle class="art-peach-300" cx="34" cy="68" r="3.4"/>
+    <circle class="art-peach-300" cx="70" cy="68" r="3.4"/>
+  </svg>
+{%- endmacro %}
+
+{# 统计卡片：label 是名称，value 是数值（读不到时传 none，显示“未提供”）。 #}
+{% macro stat(label, value, hint, icon_name='image', tone='', key='') -%}
+  <article class="ba-stat{{ ' ba-stat--' ~ tone if tone }}{{ ' is-unavailable' if value is none }}">
+    <span class="ba-stat__icon" aria-hidden="true">{{ icon(icon_name) }}</span>
+    <div class="ba-stat__body"><small>{{ label }}</small><strong{% if key %} data-library-stat="{{ key }}"{% endif %}>{{ '未提供' if value is none else value }}</strong><span class="ba-stat__hint">{{ hint }}</span></div>
+  </article>
+{%- endmacro %}

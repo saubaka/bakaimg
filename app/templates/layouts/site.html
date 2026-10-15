@@ -2,22 +2,23 @@
 {% from "components/macros.html" import icon %}
 {% block body %}
   {% set gateway_login_next = '/' if request.blueprint == 'gateway' else (request.full_path if request.query_string else request.path) %}
-  {% set upload_destination = url_for('images.upload') if current_user.is_authenticated else (url_for('gateway.login', next=url_for('images.upload')) if gateway_enabled else url_for('public.home')) %}
+  {% set upload_destination = url_for('images.upload') if current_user.is_authenticated else url_for('auth.login', next=url_for('images.upload')) %}
   <header class="site-header" data-capsule-nav>
     <nav class="site-nav" aria-label="主导航">
       <a class="site-brand" href="{{ url_for('public.home') }}" data-single-navigation>
-        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
         <span><strong>{{ site_name }}</strong><small>{{ system_name_en }}</small></span>
       </a>
       <div class="site-nav__links" data-single-navigation>
-        <a class="{{ 'is-current' if request.endpoint == 'public.home' }}" href="{{ url_for('public.home') }}">首页</a>
-        <a class="{{ 'is-current' if request.endpoint in ['public.discover', 'public.share_image', 'public.album_detail'] }}" href="{{ url_for('public.discover') }}">发现</a>
+        <a class="{{ 'is-current' if request.endpoint == 'public.home' }}" href="{{ url_for('public.home') }}">{{ icon('home') }}<span>首页</span></a>
+        {% if current_user.is_authenticated %}<a class="{{ 'is-current' if request.endpoint == 'public.dashboard' }}" href="{{ url_for('public.dashboard') }}">{{ icon('dashboard') }}<span>仪表盘</span></a>{% endif %}
+        <a class="{{ 'is-current' if request.endpoint in ['public.discover', 'public.share_image', 'public.album_detail'] }}" href="{{ url_for('public.discover') }}">{{ icon('search') }}<span>发现</span></a>
         {% if current_user.is_authenticated %}
-          {% if current_user.has_permission('images.upload') %}<a class="{{ 'is-current' if request.endpoint == 'images.upload' }}" href="{{ url_for('images.upload') }}">上传</a>{% endif %}
-          {% if current_user.has_permission('images.manage_own') %}<a class="{{ 'is-current' if request.endpoint in ['images.library', 'images.detail'] }}" href="{{ url_for('images.library') }}">图库</a><a class="{{ 'is-current' if request.endpoint in ['images.albums', 'images.create_album', 'images.edit_album'] }}" href="{{ url_for('images.albums') }}">相册</a>{% endif %}
-          {% if current_user.has_permission('favorites.manage') %}<a class="{{ 'is-current' if request.endpoint == 'public.favorites' }}" href="{{ url_for('public.favorites') }}">收藏</a>{% endif %}
-        {% elif gateway_enabled %}
-          <a class="{{ 'is-current' if request.endpoint == 'gateway.login' }}" href="{{ url_for('gateway.login', next=url_for('images.upload')) }}">上传</a>
+          {% if current_user.has_permission('images.upload') %}<a class="{{ 'is-current' if request.endpoint == 'images.upload' }}" href="{{ url_for('images.upload') }}">{{ icon('plus') }}<span>上传</span></a>{% endif %}
+          {% if current_user.has_permission('images.manage_own') %}<a class="{{ 'is-current' if request.endpoint in ['images.library', 'images.detail'] }}" href="{{ url_for('images.library') }}">{{ icon('image') }}<span>图库</span></a><a class="{{ 'is-current' if request.endpoint in ['images.albums', 'images.create_album', 'images.edit_album'] }}" href="{{ url_for('images.albums') }}">{{ icon('album') }}<span>相册</span></a>{% endif %}
+          {% if current_user.has_permission('favorites.manage') %}<a class="{{ 'is-current' if request.endpoint == 'public.favorites' }}" href="{{ url_for('public.favorites') }}">{{ icon('heart') }}<span>收藏</span></a>{% endif %}
+        {% else %}
+          <a class="{{ 'is-current' if request.endpoint == 'auth.login' }}" href="{{ url_for('auth.login', next=url_for('images.upload')) }}">{{ icon('plus') }}<span>上传</span></a>
         {% endif %}
       </div>
       <div class="site-nav__actions">
@@ -31,55 +32,60 @@
           <div class="identity-menu__panel" role="menu" data-identity-menu-panel>
             {% if current_user.is_authenticated %}
               <div class="identity-menu__profile"><strong>{{ gateway_identity.display_name if gateway_identity else current_user.display_name }}</strong><small>@{{ gateway_identity.preferred_username if gateway_identity else current_user.username }}</small></div>
-              <a role="menuitem" href="{{ url_for('gateway.portal') }}">{{ icon('person') }}<span>个人中心</span></a>
               {% if current_user.has_permission('admin.access') %}<a role="menuitem" href="{{ url_for('admin.dashboard') }}">{{ icon('settings') }}<span>管理后台</span></a>{% endif %}
-              <form method="post" action="{{ url_for('gateway.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" role="menuitem">{{ icon('arrow') }}<span>退出登录</span></button></form>
-            {% elif gateway_enabled %}
-              <a role="menuitem" href="{{ url_for('gateway.login', next=gateway_login_next) }}">{{ icon('person') }}<span>登录</span></a>
+              <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" role="menuitem">{{ icon('arrow') }}<span>退出登录</span></button></form>
             {% else %}
-              <span class="identity-menu__note">登录暂未开放</span>
+              <a role="menuitem" href="{{ url_for('auth.login', next=gateway_login_next) }}">{{ icon('person') }}<span>登录</span></a>
             {% endif %}
           </div>
         </div>
-        <button class="nav-menu-button" type="button" data-mobile-drawer aria-controls="mobile-drawer" aria-expanded="false" aria-label="打开更多菜单"><span></span><span></span><span></span></button>
+        <button class="nav-menu-button" type="button" data-mobile-drawer aria-controls="mobile-drawer" aria-expanded="false" aria-label="打开更多菜单">{{ icon('menu') }}</button>
       </div>
     </nav>
   </header>
 
-  <nav class="mobile-bottom-nav" aria-label="移动端导航">
-    <a class="{{ 'is-current' if request.endpoint == 'public.home' }}" href="{{ url_for('public.home') }}"><span aria-hidden="true">⌂</span><small>首页</small></a>
-    <a class="{{ 'is-current' if request.blueprint == 'public' and request.endpoint != 'public.home' }}" href="{{ url_for('public.discover') }}"><span aria-hidden="true">◎</span><small>发现</small></a>
-    <a class="{{ 'is-current' if request.endpoint == 'images.upload' }}" href="{{ upload_destination }}"><span aria-hidden="true">＋</span><small>上传</small></a>
-    {% if current_user.is_authenticated and current_user.has_permission('images.manage_own') %}
-      <a class="{{ 'is-current' if request.endpoint in ['images.library', 'images.detail'] }}" href="{{ url_for('images.library') }}"><span aria-hidden="true">▧</span><small>图片</small></a>
-    {% else %}
-      <a href="{{ url_for('public.terms') }}"><span aria-hidden="true">◇</span><small>服务</small></a>
-    {% endif %}
-    <button type="button" data-mobile-drawer aria-controls="mobile-drawer" aria-expanded="false"><span aria-hidden="true">≡</span><small>更多</small></button>
+  {% set signed_in = current_user.is_authenticated %}
+  {% set nav_state = 'cta' if (signed_in and request.endpoint == 'public.home') else 'tabs' %}
+  {% set discover_active = request.endpoint in ['public.discover', 'public.share_image', 'public.album_detail'] %}
+  {% set more_active = signed_in and request.endpoint not in ['public.home', 'public.dashboard', 'public.discover', 'public.share_image', 'public.album_detail'] %}
+  {# 手机底栏：游客是 首页/发现/登录；登录后是 仪表盘/发现/更多；登录后在首页时只显示一个“进入仪表盘”按钮。 #}
+  <nav class="mobile-bottom-nav" aria-label="移动端导航" data-single-navigation data-nav-state="{{ nav_state }}">
+    <div class="mobile-bottom-nav__tabs"{% if nav_state == 'cta' %} inert{% endif %}>
+      <span class="mobile-nav-indicator" data-mobile-nav-indicator aria-hidden="true"></span>
+      {% if signed_in %}
+        <a data-mobile-nav-item class="{{ 'is-current' if request.endpoint == 'public.dashboard' }}" href="{{ url_for('public.dashboard') }}">{{ icon('dashboard') }}<small>仪表盘</small></a>
+        <a data-mobile-nav-item class="{{ 'is-current' if discover_active }}" href="{{ url_for('public.discover') }}">{{ icon('search') }}<small>发现</small></a>
+        <button data-mobile-nav-item class="{{ 'is-current' if more_active }}" type="button" data-mobile-drawer aria-controls="mobile-drawer" aria-expanded="false">{{ icon('menu') }}<small>更多</small></button>
+      {% else %}
+        <a data-mobile-nav-item class="{{ 'is-current' if request.endpoint == 'public.home' }}" href="{{ url_for('public.home') }}">{{ icon('home') }}<small>首页</small></a>
+        <a data-mobile-nav-item class="{{ 'is-current' if discover_active }}" href="{{ url_for('public.discover') }}">{{ icon('search') }}<small>发现</small></a>
+        <a data-mobile-nav-item class="{{ 'is-current' if request.endpoint in ['auth.login', 'auth.register'] }}" href="{{ url_for('auth.login', next=gateway_login_next) }}">{{ icon('person') }}<small>登录</small></a>
+      {% endif %}
+    </div>
+    {% if signed_in %}<a class="mobile-bottom-nav__cta ba-button" href="{{ url_for('public.dashboard') }}"{% if nav_state != 'cta' %} inert{% endif %}>{{ icon('dashboard') }}<span>进入仪表盘</span></a>{% endif %}
   </nav>
 
   <div class="drawer-backdrop" data-mobile-backdrop hidden></div>
   <aside class="mobile-drawer" id="mobile-drawer" aria-label="更多导航" aria-hidden="true">
-    <div class="drawer__handle" aria-hidden="true"></div>
-    <div class="drawer__header"><div><span class="eyebrow">更多</span><h2>想去哪里看看？</h2></div><button type="button" data-close-mobile-drawer aria-label="关闭菜单">×</button></div>
-    <nav class="drawer__links">
-      <a href="{{ url_for('public.home') }}"><b>01</b><span><strong>首页</strong><small>回到首页</small></span></a>
-      <a href="{{ url_for('public.discover') }}"><b>02</b><span><strong>发现图片</strong><small>搜索公开图片与相册</small></span></a>
-      <a href="{{ upload_destination }}"><b>03</b><span><strong>上传图片</strong><small>保存新的画面</small></span></a>
+    <div class="drawer__header"><h2>更多</h2><button class="ba-button ba-button--soft ba-button--icon" type="button" data-close-mobile-drawer aria-label="关闭菜单">×</button></div>
+    <nav class="drawer__links" data-single-navigation>
+      <a href="{{ url_for('public.home') }}">{{ icon('home') }}<span>首页</span></a>
+      {% if not current_user.is_authenticated %}<a href="{{ url_for('public.discover') }}">{{ icon('search') }}<span>发现图片</span></a>{% endif %}
+      <a href="{{ upload_destination }}">{{ icon('plus') }}<span>上传图片</span></a>
       {% if current_user.is_authenticated %}
-        {% if current_user.has_permission('images.manage_own') %}<a href="{{ url_for('images.library') }}"><b>04</b><span><strong>我的图片</strong><small>管理图片、回收站与访问方式</small></span></a><a href="{{ url_for('images.albums') }}"><b>05</b><span><strong>我的相册</strong><small>整理并分享一组画面</small></span></a>{% endif %}
-        {% if current_user.has_permission('favorites.manage') %}<a href="{{ url_for('public.favorites') }}"><b>06</b><span><strong>我的收藏</strong><small>找回喜欢的公开图片</small></span></a>{% endif %}
+        {% if current_user.has_permission('images.manage_own') %}<a href="{{ url_for('images.library') }}">{{ icon('image') }}<span>我的图片</span></a><a href="{{ url_for('images.albums') }}">{{ icon('album') }}<span>我的相册</span></a>{% endif %}
+        {% if current_user.has_permission('favorites.manage') %}<a href="{{ url_for('public.favorites') }}">{{ icon('heart') }}<span>我的收藏</span></a>{% endif %}
       {% else %}
-        <a href="{{ url_for('public.terms') }}"><b>04</b><span><strong>服务政策</strong><small>了解存储与使用边界</small></span></a>
+        <a href="{{ url_for('public.terms') }}">{{ icon('spark') }}<span>服务政策</span></a>
       {% endif %}
     </nav>
-    <section class="drawer-account card">
+    <section class="drawer-account">
       {% if current_user.is_authenticated %}
-        <span class="drawer-account__avatar">{{ (gateway_identity.display_name if gateway_identity else current_user.display_name)[:1] }}</span>
-        <div><span class="eyebrow">已登录</span><strong>{{ gateway_identity.display_name if gateway_identity else current_user.display_name }}</strong><small>@{{ gateway_identity.preferred_username if gateway_identity else current_user.username }}</small></div>
-        <div class="drawer-account__actions"><a class="button button--soft button--small" href="{{ url_for('gateway.portal') }}">个人中心</a>{% if current_user.has_permission('api.tokens.manage') %}<a class="button button--soft button--small" href="{{ url_for('auth.api_tokens') }}">应用钥匙</a>{% endif %}{% if current_user.has_permission('admin.access') %}<a class="button button--soft button--small" href="{{ url_for('admin.dashboard') }}">管理后台</a>{% endif %}<form method="post" action="{{ url_for('gateway.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button button--soft button--small" type="submit">退出登录</button></form></div>
+        <span class="ba-avatar">{{ (gateway_identity.display_name if gateway_identity else current_user.display_name)[:1] }}</span>
+        <div><strong>{{ gateway_identity.display_name if gateway_identity else current_user.display_name }}</strong><small>@{{ gateway_identity.preferred_username if gateway_identity else current_user.username }}</small></div>
+        <div class="drawer-account__actions">{% if current_user.has_permission('api.tokens.manage') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('auth.api_tokens') }}">应用钥匙</a>{% endif %}{% if current_user.has_permission('admin.access') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('admin.dashboard') }}">管理后台</a>{% endif %}<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ba-button ba-button--soft u-compact" type="submit">退出登录</button></form></div>
       {% else %}
-        <span class="drawer-account__avatar">♡</span><div><span class="eyebrow">欢迎</span><strong>登录后继续</strong><small>收藏、上传和管理图片</small></div>{% if gateway_enabled %}<a class="button button--primary button--small" href="{{ url_for('gateway.login', next=gateway_login_next) }}">登录</a>{% endif %}
+        <span class="ba-avatar">{{ icon('person') }}</span><div><strong>登录后继续</strong><small>收藏、上传和管理图片</small></div><div class="drawer-account__actions"><a class="ba-button u-compact" href="{{ url_for('auth.login', next=gateway_login_next) }}">登录</a></div>
       {% endif %}
     </section>
   </aside>

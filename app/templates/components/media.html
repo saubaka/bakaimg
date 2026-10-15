@@ -1,0 +1,24 @@
+{% macro picture(image, variant='thumbnail', href=none, class_name='', eager=false) -%}
+  {% set rendition = image.variant(variant) %}
+  <span class="media-frame {{ class_name }}" data-media-frame>
+    {% if href %}<a class="media-frame__link" href="{{ href }}" aria-label="{{ image.title or image.original_name }}">{% endif %}
+    <img data-media-image src="{{ url_for('images.media', public_id=image.public_id, variant=variant) }}" alt="{{ image.alt_text or image.title or image.original_name }}" width="{{ rendition.width if rendition else image.width }}" height="{{ rendition.height if rendition else image.height }}" loading="{{ 'eager' if eager else 'lazy' }}" decoding="async">
+    {% if href %}</a>{% endif %}
+    <span class="media-frame__error" hidden data-media-error><span>图片未能加载</span><button class="ba-button ba-button--soft u-compact" type="button" data-media-retry>重新加载</button></span>
+  </span>
+{%- endmacro %}
+
+{% macro visibility(field, label='谁可以看') -%}
+  <div class="ba-field"><span id="{{ field.id }}-label">{{ label }}</span>
+    <div class="visibility-control upload-visibility" data-upload-visibility>
+      {{ field(data_upload_visibility_native='', aria_labelledby=field.id ~ '-label') }}
+      <button class="upload-visibility__trigger ba-select" type="button" aria-labelledby="{{ field.id }}-label {{ field.id }}-selected" aria-haspopup="menu" aria-expanded="false" data-upload-visibility-trigger>
+        <span id="{{ field.id }}-selected" data-upload-visibility-label>{{ dict(field.choices).get(field.data, "仅自己") }}</span>
+      </button>
+      <div class="upload-visibility__menu" role="menu" hidden data-upload-visibility-menu>
+        {% for value, name in field.choices %}<button type="button" role="menuitemradio" aria-checked="{{ 'true' if field.data == value else 'false' }}" data-upload-visibility-option="{{ value }}"><span>{{ name }}</span></button>{% endfor %}
+      </div>
+    </div>
+    {% for error in field.errors %}<small class="ba-field__error">{{ error }}</small>{% endfor %}
+  </div>
+{%- endmacro %}

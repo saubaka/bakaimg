@@ -1,0 +1,40 @@
+/* 浮层：系统弹窗（Dialog）和右下角通知（Toast）。外观来自设计系统，这里只补定位和浏览器默认样式。 */
+dialog.ba-dialog {
+  position: fixed;
+  inset: 0;
+  width: min(420px, calc(100% - 2 * var(--space-4)));
+  max-width: none;
+  max-height: calc(var(--dialog-visible-height, 100dvh) - 2 * var(--space-4));
+  margin: auto;
+  overflow: auto;
+  border: 0;
+  color: var(--ink);
+}
+dialog.ba-dialog:not([open]) { display: none; }
+dialog.ba-dialog::backdrop { background: color-mix(in srgb, var(--ink) 28%, transparent); }
+.app-system-dialog .ba-dialog__head h2 { margin: 0; }
+.app-system-dialog .ba-dialog__head .ba-tag { margin-bottom: var(--space-2); }
+.app-system-dialog .ba-dialog__body:empty { display: none; }
+.app-system-dialog .ba-field { margin-bottom: var(--space-1); }
+
+.toast-region {
+  position: fixed;
+  z-index: var(--z-toast);
+  right: var(--space-5);
+  bottom: calc(var(--space-5) + var(--notice-keyboard, 0px));
+  display: grid;
+  gap: var(--space-3);
+  justify-items: end;
+  max-width: calc(100% - 2 * var(--space-5));
+  pointer-events: none;
+}
+.toast-region > * { pointer-events: auto; max-width: 100%; }
+@media (max-width: 860px) {
+  body:not(.admin-body) .toast-region { bottom: calc(96px + env(safe-area-inset-bottom) + var(--notice-keyboard, 0px)); }
+}
+.ba-toast { max-width: min(100%, 420px); }
+.ba-toast > i { flex: 0 0 auto; }
+.ba-toast > span { min-width: 0; overflow-wrap: anywhere; }
+.ba-toast > button { flex: 0 0 auto; margin-left: auto; }
+.ba-toast > button:hover { background: var(--sky-200); }
+.ba-toast.is-leaving { pointer-events: none; }

@@ -1,13 +1,13 @@
 {% extends "layouts/admin.html" %}
-{% block title %}安全审计 · {{ system_name }}{% endblock %}
+{% block title %}{{ system_name }}｜后台｜安全审计{% endblock %}
 {% block admin_title %}安全审计{% endblock %}
 {% block admin_content %}
   <div class="admin-two-column audit-columns">
-    <section class="card admin-panel"><div class="section-heading"><div><span class="eyebrow">AUDIT</span><h2>操作记录</h2></div></div><div class="timeline-list">
-      {% for item in audits %}<article><i></i><div><strong>{{ item.action }}</strong><p>{{ item.summary or item.target_type }}</p><small>{{ item.actor.display_name if item.actor else '系统/访客' }} · {{ item.created_at.strftime('%Y-%m-%d %H:%M') }} · {{ item.request_id[:10] }}</small></div></article>{% else %}<p>暂无操作记录。</p>{% endfor %}
+    <section class="ba-panel"><div class="section-heading"><h2 class="ba-heading">操作记录</h2></div><div class="timeline-list">
+      {% for item in audits %}<article><i></i><div><strong>{{ item.action|audit_action }}</strong><p>{{ item.summary or item.target_type }}</p><small>{{ item.actor.display_name if item.actor else '系统/访客' }} · {{ item.created_at.strftime('%Y-%m-%d %H:%M') }} · {{ item.request_id[:10] }}</small></div></article>{% else %}<p class="ba-lead">暂无操作记录。</p>{% endfor %}
     </div></section>
-    <section class="card admin-panel"><div class="section-heading"><div><span class="eyebrow">SIGN IN</span><h2>登录记录</h2></div></div><div class="timeline-list">
-      {% for item in logins %}<article><i class="{{ 'is-success' if item.success }}"></i><div><strong>{{ item.username or '未知账号' }}</strong><p>{{ '登录成功' if item.success else '登录失败' }} · {{ item.reason }}</p><small>{{ item.created_at.strftime('%Y-%m-%d %H:%M') }} · {{ item.request_id[:10] }}</small></div></article>{% else %}<p>暂无登录记录。</p>{% endfor %}
+    <section class="ba-panel"><div class="section-heading"><h2 class="ba-heading">登录记录</h2></div><div class="timeline-list">
+      {% for item in logins %}<article><i class="{{ 'is-success' if item.success }}"></i><div><strong>{{ item.username or '未知账号' }}</strong><p><span class="ba-badge{{ ' ba-badge--ok' if item.success else ' ba-badge--alert' }}">{{ '登录成功' if item.success else '登录失败' }}</span> {{ item.reason|login_reason }}</p><small>{{ item.created_at.strftime('%Y-%m-%d %H:%M') }} · {{ item.request_id[:10] }}</small></div></article>{% else %}<p class="ba-lead">暂无登录记录。</p>{% endfor %}
     </div></section>
   </div>
 {% endblock %}

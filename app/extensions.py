@@ -18,6 +18,6 @@ db = SQLAlchemy(metadata=MetaData(naming_convention=NAMING_CONVENTION))
 migrate = Migrate(compare_type=True, render_as_batch=True)
 csrf = CSRFProtect()
 login_manager = LoginManager()
-login_manager.login_view = "gateway.login"
+login_manager.login_view = "auth.login"
 login_manager.login_message = "请先登录后再继续。"
 login_manager.login_message_category = "info"
