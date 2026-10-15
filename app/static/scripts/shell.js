@@ -10,7 +10,7 @@
     || !window.fetch || !window.DOMParser || !window.history?.pushState) return;
 
   const lifecycle = new AbortController();
-  const SKIP = /^\/(admin|media|api|static|healthz|readyz)(\/|$)|^\/auth\/(login|register|logout|gateway|callback|portal|avatar|status|recovery)(\/|$)/;
+  const SKIP = /^\/(admin|bakaadmin|setup|media|api|static|healthz|readyz)(\/|$)|^\/auth\/(login|register|logout|gateway|callback|portal|avatar|status|recovery)(\/|$)/;
   const COVER = { stretch: 0.58, fade: 0.27, 'zoom-blur': 0.42, none: 0 };
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const reduced = () => (ui.motion ? ui.motion.reduced() : matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -28,7 +28,7 @@
   // ---- 能不能局部换页 ----
   const eligible = (link, event) => {
     if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return null;
-    if ((link.target && link.target !== '_self') || link.hasAttribute('download') || link.dataset.noTransition !== undefined) return null;
+    if ((link.target && link.target !== '_self') || link.hasAttribute('download') || link.hasAttribute('data-shell-skip') || link.dataset.noTransition !== undefined) return null;
     const url = new URL(link.href, location.href);
     if (url.origin !== location.origin || !/^https?:$/.test(url.protocol)) return null;
     if (SKIP.test(url.pathname) || /\.[a-z0-9]{2,5}$/i.test(url.pathname)) return null;

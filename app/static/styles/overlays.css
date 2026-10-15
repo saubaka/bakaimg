@@ -30,7 +30,7 @@ dialog.ba-dialog::backdrop { background: color-mix(in srgb, var(--ink) 28%, tran
 }
 .toast-region > * { pointer-events: auto; max-width: 100%; }
 @media (max-width: 860px) {
-  body:not(.admin-body) .toast-region { bottom: calc(96px + env(safe-area-inset-bottom) + var(--notice-keyboard, 0px)); }
+  body:not(.admin-body) .toast-region { bottom: calc(84px + env(safe-area-inset-bottom) + var(--notice-keyboard, 0px)); }
 }
 .ba-toast { max-width: min(100%, 420px); }
 .ba-toast > i { flex: 0 0 auto; }

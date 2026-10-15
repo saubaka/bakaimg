@@ -1,0 +1,43 @@
+{% extends "layouts/setup.html" %}
+{% from "components/macros.html" import field %}
+{% block title %}{{ site_name }}｜初始化{% endblock %}
+{% block content %}
+  <div class="setup-shell">
+    <header class="setup-head">
+      <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+      <h1 class="ba-title">欢迎使用 baka图床</h1>
+      <p class="ba-lead">先完成下面三项设置，就可以开始使用了。这些信息只需要填写一次。</p>
+    </header>
+
+    <form class="setup-form" data-auth-form method="post" novalidate action="{{ url_for('setup.index') }}">
+      {{ form.hidden_tag() }}
+
+      <section class="ba-panel setup-panel">
+        <div class="setup-panel__title"><span class="setup-step" aria-hidden="true">1</span><div><h2 class="ba-heading">站点</h2><p class="muted">显示在页面标题和页眉里的名字。</p></div></div>
+        {{ field(form.site_name, autocomplete='off', placeholder='baka图床') }}
+      </section>
+
+      <section class="ba-panel setup-panel">
+        <div class="setup-panel__title"><span class="setup-step" aria-hidden="true">2</span><div><h2 class="ba-heading">后台路径</h2><p class="muted">管理后台的访问地址。换一个只有你知道的路径，更不容易被别人撞见；之后也可以在后台里修改。</p></div></div>
+        {{ field(form.admin_path, autocomplete='off', placeholder='bakaadmin') }}
+      </section>
+
+      <section class="ba-panel setup-panel">
+        <div class="setup-panel__title"><span class="setup-step" aria-hidden="true">3</span><div><h2 class="ba-heading">管理员账号</h2><p class="muted">这个账号拥有全部权限，请使用只有你知道的强密码。</p></div></div>
+        <div class="form-grid">
+          {{ field(form.display_name, autocomplete='name', placeholder='怎么称呼你') }}
+          {{ field(form.username, autocomplete='username', placeholder='登录用的用户名') }}
+          {{ field(form.email, autocomplete='email', placeholder='name@example.com', class_name='form-span') }}
+          {{ field(form.password, autocomplete='new-password', placeholder='至少 12 个字符', password=true) }}
+          {{ field(form.confirm_password, autocomplete='new-password', placeholder='再输入一遍', password=true) }}
+        </div>
+        {% if form.csrf_token is defined %}{% for error in form.csrf_token.errors %}<small class="ba-field__error" role="alert">{{ error }}</small>{% endfor %}{% endif %}
+      </section>
+
+      <div class="setup-actions">
+        <button class="ba-button u-full" type="submit" data-busy-label="正在初始化…">完成初始化</button>
+        <p class="muted">完成后会直接进入后台。</p>
+      </div>
+    </form>
+  </div>
+{% endblock %}

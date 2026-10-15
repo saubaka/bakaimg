@@ -1,0 +1,46 @@
+{% extends "layouts/admin.html" %}
+{% block title %}{{ system_name }}｜后台｜后台路径{% endblock %}
+{% block admin_title %}后台路径{% endblock %}
+{% block admin_content %}
+  <div class="admin-two-column">
+    <section class="ba-panel">
+      <div class="section-heading"><h2 class="ba-heading">修改后台路径</h2></div>
+      <p class="muted ba-lead">后台的访问地址不一定要叫 {{ default_path }}。换一个只有你知道的路径，可以让后台更不容易被别人撞见。</p>
+      <form method="post" action="{{ url_for('admin.admin_path_settings') }}" class="stack-form" novalidate>
+        {{ form.hidden_tag() }}
+        <label class="ba-field" for="{{ form.admin_path.id }}">
+          <span>{{ form.admin_path.label.text }}</span>
+          {{ form.admin_path(maxlength=32, autocomplete='off', spellcheck='false', aria_describedby='admin-path-hint admin-path-error') }}
+          <small id="admin-path-hint" class="muted">小写字母、数字和短横线，3 到 32 个字符。</small>
+          <small class="ba-field__error" id="admin-path-error" aria-live="polite">{{ form.admin_path.errors|join(' ') }}</small>
+        </label>
+        <label class="ba-field" for="{{ form.current_password.id }}">
+          <span>{{ form.current_password.label.text }}</span>
+          {{ form.current_password(autocomplete='current-password') }}
+          <small class="ba-field__error" aria-live="polite">{{ form.current_password.errors|join(' ') }}</small>
+        </label>
+        {{ form.submit(class_="ba-button") }}
+      </form>
+    </section>
+
+    <section class="ba-panel">
+      <div class="section-heading"><h2 class="ba-heading">现在的地址</h2></div>
+      <p class="muted ba-lead">修改后，旧地址会立刻失效，访问它只会看到“页面不存在”。</p>
+      <label class="copy-field ba-field"><span>后台地址</span><span><input class="ba-input" value="{{ request.host_url }}{{ current_path }}/" readonly data-copy-source><button class="ba-button ba-button--soft u-compact" type="button" data-copy-button>复制</button></span></label>
+      <p class="muted security-note">请把新地址保存好。忘记时，可以在服务器上运行 <code>flask --app wsgi:app admin-path</code> 查看，加上 <code>--reset</code> 恢复默认路径。</p>
+    </section>
+  </div>
+
+  <section class="ba-panel">
+    <div class="section-heading"><h2 class="ba-heading">站点名称</h2></div>
+    <p class="muted ba-lead">显示在页面标题和前台页眉里的名字。</p>
+    <form method="post" action="{{ url_for('admin.update_site_name') }}" class="stack-form" novalidate>
+      {{ site_form.hidden_tag() }}
+      <label class="ba-field" for="{{ site_form.site_name.id }}">
+        <span>{{ site_form.site_name.label.text }}</span>
+        {{ site_form.site_name(maxlength=40, autocomplete='off') }}
+      </label>
+      {{ site_form.submit(class_="ba-button") }}
+    </form>
+  </section>
+{% endblock %}

@@ -8,7 +8,8 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from flask import Flask, g, jsonify, render_template, request
+from flask import Flask, g, jsonify, redirect, render_template, request, url_for
+from flask.globals import request_ctx
 from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -90,6 +91,7 @@ def create_app(
     from app.blueprints.gateway import gateway_bp
     from app.blueprints.images import images_bp
     from app.blueprints.public import public_bp
+    from app.blueprints.setup import setup_bp
     from app.cli import register_commands
 
     app.register_blueprint(public_bp)
@@ -98,6 +100,7 @@ def create_app(
     app.register_blueprint(images_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(setup_bp)
     csrf.exempt(api_bp)
     register_commands(app)
     _register_hooks(app)
@@ -158,6 +161,9 @@ def _register_hooks(app: Flask) -> None:
         supplied = request.headers.get("X-Request-ID", "")
         g.request_id = supplied[:64] if supplied.isascii() and supplied.isalnum() else uuid4().hex
         validate_browser_session()
+        setup_response = _setup_redirect()
+        if setup_response is not None:
+            return setup_response
         g.gateway_session = current_gateway_session(validate_remote=True)
         maintenance_response = _maintenance_response()
         if maintenance_response is not None:
@@ -253,8 +259,9 @@ def _register_context(app: Flask) -> None:
             "app_version": app.config["APP_VERSION"],
             "system_name": app.config["SYSTEM_NAME"],
             "system_name_en": app.config["SYSTEM_NAME_EN"],
-            "site_name": app.config["SITE_NAME"],
-            "site_tagline": app.config["SITE_TAGLINE"],
+            "site_name": setting("site_name", app.config["SITE_NAME"]) or app.config["SITE_NAME"],
+            "site_tagline": setting("site_tagline", app.config["SITE_TAGLINE"])
+            or app.config["SITE_TAGLINE"],
             "page_transition_style": transition_style,
             "page_transition_duration": safe_number("page_transition_duration", 720, 300, 2400),
             "page_transition_color_start": safe_color(
@@ -310,6 +317,29 @@ def _register_errors(app: Flask) -> None:
                 code,
             ),
         )
+
+
+def _setup_redirect():  # type: ignore[no-untyped-def]
+    """Until the first account exists, every page leads to the initialisation screen."""
+
+    from app.services.setup import setup_needed
+
+    if request_ctx.url_adapter is None:  # 主机名不被允许时，交给原有的 400 处理
+        return None
+    if (
+        request.endpoint
+        in {
+            "static",
+            "setup.index",
+            "public.healthcheck",
+            "public.readiness_check",
+        }
+        or not setup_needed()
+    ):
+        return None
+    if request.blueprint == "api" or request.path.startswith("/api/"):
+        return jsonify(error="setup_required", message="站点还没有完成初始化。"), 503
+    return redirect(url_for("setup.index"))
 
 
 def _maintenance_response():  # type: ignore[no-untyped-def]

@@ -130,12 +130,30 @@
     <section class="home-section" aria-label="常见问题">
       <div class="section-head" data-reveal><h2 class="ba-heading">常见问题</h2></div>
       <div class="faq-grid">
-        <details class="faq" data-reveal><summary>支持哪些图片格式？</summary><p>JPEG、PNG、WebP 和 GIF。上传时会先真实解码，格式不对或文件损坏会直接提示。</p></details>
-        <details class="faq" data-reveal><summary>别人默认能看到我的图片吗？</summary><p>不能。新图片默认仅自己可见，选择“通过链接分享”或“公开展示”之后才会被别人看到。</p></details>
-        <details class="faq" data-reveal><summary>删除后还能找回吗？</summary><p>移入回收站的图片可以恢复，但仍占用空间；在回收站里永久删除后无法恢复。</p></details>
-        <details class="faq" data-reveal><summary>图片会被改动吗？</summary><p>会重新编码并清除拍摄位置等附带信息，同时生成缩略图，原图链接和分享页都可以复制。</p></details>
-        <details class="faq" data-reveal><summary>可以用程序批量上传吗？</summary><p>可以。创建应用钥匙后，让程序带着钥匙调用上传接口，完整钥匙只显示一次。</p></details>
-        <details class="faq" data-reveal><summary>我的数据存在哪里？</summary><p>保存在运行 baka图床 的服务器上，不会同步给任何第三方服务；具体收集哪些信息，见页尾的隐私条款。</p></details>
+        <div class="faq" data-faq data-reveal>
+          <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-1"><span>支持哪些图片格式？</span><i class="faq__mark" aria-hidden="true"></i></button>
+          <div class="faq__a" id="faq-answer-1" role="region" inert><div><p>JPEG、PNG、WebP 和 GIF。上传时会先真实解码，格式不对或文件损坏会直接提示。</p></div></div>
+        </div>
+        <div class="faq" data-faq data-reveal>
+          <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-2"><span>别人默认能看到我的图片吗？</span><i class="faq__mark" aria-hidden="true"></i></button>
+          <div class="faq__a" id="faq-answer-2" role="region" inert><div><p>不能。新图片默认仅自己可见，选择“通过链接分享”或“公开展示”之后才会被别人看到。</p></div></div>
+        </div>
+        <div class="faq" data-faq data-reveal>
+          <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-3"><span>删除后还能找回吗？</span><i class="faq__mark" aria-hidden="true"></i></button>
+          <div class="faq__a" id="faq-answer-3" role="region" inert><div><p>移入回收站的图片可以恢复，但仍占用空间；在回收站里永久删除后无法恢复。</p></div></div>
+        </div>
+        <div class="faq" data-faq data-reveal>
+          <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-4"><span>图片会被改动吗？</span><i class="faq__mark" aria-hidden="true"></i></button>
+          <div class="faq__a" id="faq-answer-4" role="region" inert><div><p>会重新编码并清除拍摄位置等附带信息，同时生成缩略图，原图链接和分享页都可以复制。</p></div></div>
+        </div>
+        <div class="faq" data-faq data-reveal>
+          <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-5"><span>可以用程序批量上传吗？</span><i class="faq__mark" aria-hidden="true"></i></button>
+          <div class="faq__a" id="faq-answer-5" role="region" inert><div><p>可以。创建应用钥匙后，让程序带着钥匙调用上传接口，完整钥匙只显示一次。</p></div></div>
+        </div>
+        <div class="faq" data-faq data-reveal>
+          <button class="faq__q" type="button" aria-expanded="false" aria-controls="faq-answer-6"><span>我的数据存在哪里？</span><i class="faq__mark" aria-hidden="true"></i></button>
+          <div class="faq__a" id="faq-answer-6" role="region" inert><div><p>保存在运行 baka图床 的服务器上，不会同步给任何第三方服务；具体收集哪些信息，见页尾的隐私条款。</p></div></div>
+        </div>
       </div>
     </section>
 

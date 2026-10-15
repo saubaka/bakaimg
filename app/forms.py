@@ -150,6 +150,33 @@ class MaintenanceForm(StyledForm):
     submit = SubmitField("保存维护状态")
 
 
+class AdminPathForm(StyledForm):
+    admin_path = StringField(
+        "后台路径",
+        validators=[
+            DataRequired(message="请填写后台路径。"),
+            Length(min=3, max=32, message="后台路径需要 3 到 32 个字符。"),
+            Regexp(
+                r"^[a-z0-9][a-z0-9-]*$",
+                message="只能使用小写字母、数字和短横线，并且以字母或数字开头。",
+            ),
+        ],
+    )
+    current_password = PasswordField(
+        "当前账号密码",
+        validators=[DataRequired(message="请输入当前账号的密码。"), Length(max=256)],
+    )
+    submit = SubmitField("保存后台路径")
+
+
+class SiteNameForm(StyledForm):
+    site_name = StringField(
+        "站点名称",
+        validators=[DataRequired(message="请填写站点名称。"), Length(max=40)],
+    )
+    submit = SubmitField("保存站点名称")
+
+
 class EmptyForm(StyledForm):
     submit = SubmitField("确认")
 
@@ -256,3 +283,46 @@ class ApiTokenForm(StyledForm):
         validators=[DataRequired(), NumberRange(min=1, max=365)],
     )
     submit = SubmitField("创建钥匙")
+
+
+class SetupForm(StyledForm):
+    site_name = StringField(
+        "站点名称",
+        default="baka图床",
+        validators=[DataRequired(message="请填写站点名称。"), Length(max=40)],
+    )
+    admin_path = StringField(
+        "后台路径",
+        validators=[
+            DataRequired(message="请填写后台路径。"),
+            Length(min=3, max=32, message="后台路径需要 3 到 32 个字符。"),
+            Regexp(
+                r"^[a-z0-9][a-z0-9-]*$",
+                message="只能使用小写字母、数字和短横线，并且以字母或数字开头。",
+            ),
+        ],
+    )
+    display_name = StringField(
+        "显示名称", validators=[DataRequired(message="请填写显示名称。"), Length(max=80)]
+    )
+    username = StringField(
+        "管理员用户名", validators=[DataRequired(message="请填写用户名。"), Length(min=3, max=50)]
+    )
+    email = StringField(
+        "管理员邮箱", validators=[DataRequired(message="请填写邮箱。"), Length(max=254)]
+    )
+    password = PasswordField(
+        "管理员密码",
+        validators=[
+            DataRequired(message="请设置密码。"),
+            Length(min=12, max=256, message="密码需要 12 到 256 个字符。"),
+        ],
+    )
+    confirm_password = PasswordField(
+        "再输入一遍密码",
+        validators=[
+            DataRequired(message="请再输入一遍密码。"),
+            EqualTo("password", message="两次输入的密码不一致。"),
+        ],
+    )
+    submit = SubmitField("完成初始化")

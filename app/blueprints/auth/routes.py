@@ -19,6 +19,7 @@ from flask_login import current_user
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
+from app.blueprints.admin import is_admin_target
 from app.blueprints.auth import auth_bp
 from app.extensions import db
 from app.forms import (
@@ -148,7 +149,7 @@ def login():
         record_audit("auth.local_login", "user", str(user.id), "本地账号登录成功")
         db.session.commit()
         flash(f"欢迎回来，{user.display_name}。", "success")
-        if next_target.startswith("/admin/") and not user.has_permission("admin.access"):
+        if is_admin_target(next_target) and not user.has_permission("admin.access"):
             flash("这个账号不能进入管理后台。", "error")
             return redirect(url_for("public.home"))
         return redirect(next_target)
@@ -197,9 +198,7 @@ def register():
         except (ValueError, RuntimeError, IntegrityError) as error:
             db.session.rollback()
             message = (
-                str(error)
-                if not isinstance(error, IntegrityError)
-                else "用户名或邮箱已被使用。"
+                str(error) if not isinstance(error, IntegrityError) else "用户名或邮箱已被使用。"
             )
             flash(message, "error")
     response = make_response(

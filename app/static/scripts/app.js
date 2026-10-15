@@ -262,6 +262,16 @@
     }, { signal });
   }
 
+  document.querySelectorAll("[data-faq]").forEach((item) => {
+    const button = item.querySelector(".faq__q"), panel = item.querySelector(".faq__a");
+    button?.addEventListener("click", () => {
+      const open = !item.classList.contains("is-open");
+      item.classList.toggle("is-open", open);
+      button.setAttribute("aria-expanded", String(open));
+      if (panel) panel.inert = !open;
+    }, { signal });
+  });
+
   document.querySelectorAll("[data-copy-button]").forEach((button) => {
     button.addEventListener("click", async () => {
       const input = button.closest(".copy-field")?.querySelector("[data-copy-source]");

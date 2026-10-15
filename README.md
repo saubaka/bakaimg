@@ -31,7 +31,7 @@ start.bat
 
 默认地址：`http://127.0.0.1:5200`。
 
-2. 创建首个管理员（按提示输入用户名、邮箱、显示名和密码）：
+2. 第一次打开站点会直接进入初始化页面：填写站点名称、后台路径（默认`bakaadmin`，可以换成只有你知道的名字）和管理员账号，提交后自动登录并进入后台。后台路径之后也可以在后台“系统管理 → 后台路径”里修改；忘记时可在服务器上运行`flask --app wsgi:app admin-path`查看，加`--reset`恢复默认。也可以用命令行创建首个管理员（按提示输入用户名、邮箱、显示名和密码）：
 
 ```bat
 .venv\Scripts\python.exe -m flask --app wsgi:app create-admin
@@ -43,7 +43,7 @@ start.bat
 .venv\Scripts\python.exe -m flask --app wsgi:app local-recovery-link
 ```
 
-4. 本地登录和注册无需配置外部服务；如需要外部登录，可在后台`/admin/gateway/`填入OpenID Connect发行者地址、Client ID与Client Secret，保留本地账号入口。
+4. 本地登录和注册无需配置外部服务；如需要外部登录，可在后台`/bakaadmin/gateway/`填入OpenID Connect发行者地址、Client ID与Client Secret，保留本地账号入口。
 
 日常备份与校验：
 

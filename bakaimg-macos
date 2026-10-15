@@ -6,7 +6,7 @@
 #   正式部署  执行过 deploy-macos.sh 之后，由launchd托管应用与Nginx，需要管理员权限。
 set -eu
 
-VERSION="0.16.1"
+VERSION="0.17.0"
 LABEL="com.saubaka.bakaimg"
 NGINX_LABEL="com.saubaka.bakaimg.nginx"
 MAINTENANCE_LABEL="com.saubaka.bakaimg.maintenance"

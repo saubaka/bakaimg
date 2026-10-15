@@ -21,6 +21,7 @@ from flask import (
 )
 from flask_login import current_user, logout_user
 
+from app.blueprints.admin import is_admin_target
 from app.blueprints.gateway import gateway_bp
 from app.extensions import db
 from app.models import LoginLog, Role, User
@@ -266,9 +267,7 @@ def callback():
     db.session.commit()
     flash(f"欢迎回来，{identity.display_name}。", "success")
     if intent == "admin":
-        return redirect(
-            next_target if next_target.startswith("/admin/") else url_for("admin.dashboard")
-        )
+        return redirect(next_target if is_admin_target(next_target) else url_for("admin.dashboard"))
     return redirect(next_target)
 
 

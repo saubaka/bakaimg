@@ -6,7 +6,7 @@ from datetime import timedelta
 
 
 class BaseConfig:
-    APP_VERSION = "0.16.1"
+    APP_VERSION = "0.17.0"
     SYSTEM_NAME = "baka图床"
     SYSTEM_NAME_EN = "bakaimg"
     SITE_NAME = "baka图床"
@@ -62,6 +62,7 @@ class BaseConfig:
     WTF_CSRF_TIME_LIMIT = 2 * 60 * 60
     WTF_CSRF_SSL_STRICT = True
     SEND_FILE_MAX_AGE_DEFAULT = 3600
+    SETUP_REQUIRED = True
 
 
 class DevelopmentConfig(BaseConfig):
@@ -77,6 +78,7 @@ class TestingConfig(BaseConfig):
     SECRET_KEY = "testing-secret-key"
     WTF_CSRF_ENABLED = False
     SERVER_NAME = "localhost"
+    SETUP_REQUIRED = False
 
 
 class ProductionConfig(BaseConfig):

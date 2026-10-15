@@ -32,7 +32,7 @@
           <div class="identity-menu__panel" role="menu" data-identity-menu-panel>
             {% if current_user.is_authenticated %}
               <div class="identity-menu__profile"><strong>{{ gateway_identity.display_name if gateway_identity else current_user.display_name }}</strong><small>@{{ gateway_identity.preferred_username if gateway_identity else current_user.username }}</small></div>
-              {% if current_user.has_permission('admin.access') %}<a role="menuitem" href="{{ url_for('admin.dashboard') }}">{{ icon('settings') }}<span>管理后台</span></a>{% endif %}
+              {% if current_user.has_permission('admin.access') %}<a role="menuitem" data-shell-skip href="{{ url_for('admin.dashboard') }}">{{ icon('settings') }}<span>管理后台</span></a>{% endif %}
               <form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" role="menuitem">{{ icon('arrow') }}<span>退出登录</span></button></form>
             {% else %}
               <a role="menuitem" href="{{ url_for('auth.login', next=gateway_login_next) }}">{{ icon('person') }}<span>登录</span></a>
@@ -83,7 +83,7 @@
       {% if current_user.is_authenticated %}
         <span class="ba-avatar">{{ (gateway_identity.display_name if gateway_identity else current_user.display_name)[:1] }}</span>
         <div><strong>{{ gateway_identity.display_name if gateway_identity else current_user.display_name }}</strong><small>@{{ gateway_identity.preferred_username if gateway_identity else current_user.username }}</small></div>
-        <div class="drawer-account__actions">{% if current_user.has_permission('api.tokens.manage') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('auth.api_tokens') }}">应用钥匙</a>{% endif %}{% if current_user.has_permission('admin.access') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('admin.dashboard') }}">管理后台</a>{% endif %}<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ba-button ba-button--soft u-compact" type="submit">退出登录</button></form></div>
+        <div class="drawer-account__actions">{% if current_user.has_permission('api.tokens.manage') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('auth.api_tokens') }}">应用钥匙</a>{% endif %}{% if current_user.has_permission('admin.access') %}<a class="ba-button ba-button--soft u-compact" data-shell-skip href="{{ url_for('admin.dashboard') }}">管理后台</a>{% endif %}<form method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="ba-button ba-button--soft u-compact" type="submit">退出登录</button></form></div>
       {% else %}
         <span class="ba-avatar">{{ icon('person') }}</span><div><strong>登录后继续</strong><small>收藏、上传和管理图片</small></div><div class="drawer-account__actions"><a class="ba-button u-compact" href="{{ url_for('auth.login', next=gateway_login_next) }}">登录</a></div>
       {% endif %}

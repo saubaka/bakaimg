@@ -75,7 +75,7 @@
           <p>用应用钥匙让程序替你上传，需要时在这里管理。</p>
           <div class="dashboard-tools">
             {% if current_user.has_permission('api.tokens.manage') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('auth.api_tokens') }}">应用钥匙</a>{% endif %}
-            {% if current_user.has_permission('admin.access') %}<a class="ba-button ba-button--soft u-compact" href="{{ url_for('admin.dashboard') }}">管理后台</a>{% endif %}
+            {% if current_user.has_permission('admin.access') %}<a class="ba-button ba-button--soft u-compact" data-shell-skip href="{{ url_for('admin.dashboard') }}">管理后台</a>{% endif %}
             <a class="ba-button ba-button--soft u-compact" href="{{ url_for('public.terms') }}">服务政策</a>
           </div>
         </article>

@@ -53,6 +53,19 @@ def register_commands(app: Flask) -> None:
             f"permissions={created_permissions} roles={created_roles}"
         )
 
+    @app.cli.command("admin-path")
+    @click.option("--reset", is_flag=True, help="把后台路径恢复为默认值。")
+    def admin_path(reset: bool) -> None:
+        """Show the back-office path, or reset it when it was forgotten."""
+
+        from app.blueprints.admin import DEFAULT_ADMIN_PATH, current_admin_path
+        from app.services.identity import set_setting
+
+        if reset:
+            set_setting("admin_path", DEFAULT_ADMIN_PATH)
+            db.session.commit()
+        click.echo(f"/{current_admin_path()}/")
+
     @app.cli.command("system-check")
     def system_check() -> None:
         """Verify the local database and required writable directories."""

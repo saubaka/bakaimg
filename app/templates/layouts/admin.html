@@ -13,7 +13,7 @@
   {% set users_active = endpoint in ['admin.users','admin.edit_user','admin.roles','admin.edit_role'] %}
   {% set appearance_active = endpoint in ['admin.appearance_hints','admin.transition_settings','admin.dialog_appearance'] %}
   {% set gateway_active = endpoint in ['admin.gateway_settings','admin.gateway_connection_save','admin.gateway_connection_delete','admin.gateway_unlink'] %}
-  {% set system_active = endpoint in ['admin.audit','admin.operations','admin.update_maintenance','admin.create_backup_admin','admin.verify_backup_admin'] %}
+  {% set system_active = endpoint in ['admin.audit','admin.operations','admin.update_maintenance','admin.create_backup_admin','admin.verify_backup_admin','admin.admin_path_settings'] %}
   <div class="admin-shell{% if not admin_menu_subtitles_visible %} admin-menu--compact{% endif %}">
     <aside class="ba-rail admin-sidebar" id="admin-sidebar" aria-label="后台导航">
       <a data-single-navigation class="ba-rail__brand admin-brand" href="{{ url_for('admin.dashboard') }}">
@@ -71,6 +71,7 @@
             <button class="ba-rail__link admin-nav-group__toggle" type="button" data-admin-menu-toggle aria-expanded="{{ 'true' if system_active else 'false' }}" aria-controls="admin-menu-system">{{ icon('settings') }}<span><strong>系统管理</strong><small>运维、日志与系统设置</small></span>{{ icon('arrow-down', 'admin-nav-group__chevron') }}</button>
             <div class="admin-nav-group__items" id="admin-menu-system"><div>
               {% if current_user.has_permission('system.maintain') %}{{ admin_child('operations','维护中心','备份、维护和记录',url_for('admin.operations'),endpoint in ['admin.operations','admin.update_maintenance','admin.create_backup_admin','admin.verify_backup_admin']) }}{% endif %}
+              {% if current_user.has_permission('system.maintain') %}{{ admin_child('admin-path','后台路径','修改后台的访问地址',url_for('admin.admin_path_settings'),endpoint == 'admin.admin_path_settings') }}{% endif %}
               {% if current_user.has_permission('audit.view') %}{{ admin_child('audit','操作日志','登录与后台操作记录',url_for('admin.audit'),endpoint == 'admin.audit') }}{% endif %}
             </div></div>
           </section>

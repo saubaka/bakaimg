@@ -6,13 +6,21 @@ from flask import abort, current_app, flash, redirect, render_template, request,
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
-from app.blueprints.admin import admin_bp
+from app.blueprints.admin import (
+    DEFAULT_ADMIN_PATH,
+    admin_bp,
+    current_admin_path,
+    refresh_admin_path,
+    reserved_admin_paths,
+)
 from app.extensions import db
 from app.forms import (
+    AdminPathForm,
     DialogAppearanceForm,
     EmptyForm,
     MaintenanceForm,
     RoleForm,
+    SiteNameForm,
     TransitionSettingsForm,
     UserAdminForm,
 )
@@ -276,6 +284,58 @@ def update_maintenance():
     db.session.commit()
     flash("维护状态已保存。", "success")
     return redirect(url_for("admin.operations"))
+
+
+@admin_bp.route("/system/path/", methods=["GET", "POST"])
+@permission_required("system.maintain")
+def admin_path_settings():
+    current = current_admin_path()
+    form = AdminPathForm(admin_path=current if request.method == "GET" else None)
+    if form.validate_on_submit():
+        requested = form.admin_path.data.strip().lower()
+        problem = None
+        if not current_user.check_password(form.current_password.data):
+            problem = "当前账号的密码不正确。"
+        elif requested == current:
+            problem = "新的后台路径和现在的一样，无需修改。"
+        elif requested in reserved_admin_paths():
+            problem = "这个路径已经被站点其他页面使用，请换一个。"
+        if problem:
+            flash(problem, "error")
+        else:
+            set_setting("admin_path", requested)
+            record_audit(
+                "admin.path.update",
+                "site_setting",
+                "admin_path",
+                f"后台路径由 {current} 改为 {requested}",
+            )
+            db.session.commit()
+            refresh_admin_path(requested)
+            flash("后台路径已修改，旧地址已经失效，请记住新地址。", "success")
+            return redirect(url_for("admin.admin_path_settings", admin_path=requested))
+    return render_template(
+        "admin/path_settings.html",
+        form=form,
+        site_form=SiteNameForm(site_name=get_setting("site_name", "baka图床")),
+        current_path=current,
+        default_path=DEFAULT_ADMIN_PATH,
+    )
+
+
+@admin_bp.post("/system/site-name/")
+@permission_required("system.maintain")
+def update_site_name():
+    form = SiteNameForm()
+    if not form.validate_on_submit():
+        flash("站点名称未保存，请检查输入。", "error")
+        return redirect(url_for("admin.admin_path_settings"))
+    name = form.site_name.data.strip()
+    set_setting("site_name", name)
+    record_audit("admin.site_name.update", "site_setting", "site_name", f"站点名称改为 {name}")
+    db.session.commit()
+    flash("站点名称已保存。", "success")
+    return redirect(url_for("admin.admin_path_settings"))
 
 
 @admin_bp.route("/appearance/hints/", methods=["GET", "POST"])
